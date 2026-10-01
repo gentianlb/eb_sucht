@@ -23,7 +23,7 @@ export interface MedicationReason {
 export interface PriorMedication {
   id: string;
   name: string;
-  action: 'fortgeführt' | 'abgesetzt' | 'verändert';
+  action: 'fortgeführt' | 'abgesetzt' | 'reduziert' | 'erhöht';
 }
 
 export interface FormState {
@@ -37,18 +37,28 @@ export interface FormState {
   treatmentGoals: string[];
   detoxSubstances: string[];
   detoxOther: string;
+
   urineStatus: UrineStatus;
   urinePositive: string[];
   urineOther: string;
   aakEnabled: boolean;
   aak: string;
+  capillaryBloodEnabled: boolean;
+  capillaryBloodSubstance: string;
+
   withdrawalSeverity: Severity;
   withdrawalSymptoms: string[];
   withdrawalOther: string;
+
   detoxMedication: string[];
   detoxMedicationOther: string;
   additionalMedication: MedicationReason[];
   priorMedication: PriorMedication[];
+
+  transferEnabled: boolean;
+  transferFrom: WardType;
+  transferTo: WardType;
+
   wardBehavior: string[];
   wardBehaviorOther: string;
   groups: string[];
@@ -57,10 +67,13 @@ export interface FormState {
   therapeuticMeasuresOther: string;
   outcomes: string[];
   outcomesOther: string;
+
   dischargeType: DischargeType;
   dischargeOther: string;
   safety: string[];
   safetyOther: string;
+  opioidToleranceWarning: boolean;
+
   followUp: string[];
   followUpOther: string;
   followUpDate: string;
