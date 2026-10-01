@@ -72,7 +72,7 @@ export const symptomSuggestions: Record<string, string[]> = {
 
 export const detoxMedications = [
   'keine spezifische medikamentöse Entzugsbehandlung',
-  'Clonazepam (Revotril)',
+  'Clonazepam (Rivotril)',
   'Methadon',
   'L-Polamidon',
   'Buprenorphin',
