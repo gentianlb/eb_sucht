@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   detoxMedications,
   emptyForm,
@@ -7,10 +7,10 @@ import {
   outcomes,
   safetyOptions,
   substances,
-  symptomSuggestions,
   therapeuticMeasures,
   treatmentGoals,
   uncomplicatedPreset,
+  urineMarkers,
   wardBehaviors,
   withdrawalSymptoms,
 } from './data';
@@ -19,7 +19,17 @@ import type { FormState, MedicationReason, PriorMedication } from './types';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-function Chip({ active, children, onClick, disabled = false }: { active: boolean; children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
+function Chip({
+  active,
+  children,
+  onClick,
+  disabled = false,
+}: {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
   return (
     <button type="button" className={`chip ${active ? 'active' : ''}`} onClick={onClick} disabled={disabled}>
       {children}
@@ -27,9 +37,34 @@ function Chip({ active, children, onClick, disabled = false }: { active: boolean
   );
 }
 
-function Section({ title, hint, children, open = false }: { title: string; hint?: string; children: React.ReactNode; open?: boolean }) {
+function Section({
+  id,
+  title,
+  hint,
+  children,
+  defaultOpen = false,
+  fastMode,
+  activeSection,
+  onOpen,
+}: {
+  id: string;
+  title: string;
+  hint?: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+  fastMode: boolean;
+  activeSection: string | null;
+  onOpen: (id: string) => void;
+}) {
   return (
-    <details className="section" open={open}>
+    <details
+      className="section"
+      open={fastMode ? activeSection === id : undefined}
+      defaultOpen={fastMode ? undefined : defaultOpen}
+      onToggle={(event) => {
+        if (fastMode && event.currentTarget.open) onOpen(id);
+      }}
+    >
       <summary>
         <span>{title}</span>
         {hint && <small>{hint}</small>}
@@ -54,10 +89,16 @@ function MultiChips({
     if (value.includes(item)) onChange(value.filter((v) => v !== item));
     else if (!max || value.length < max) onChange([...value, item]);
   };
+
   return (
     <div className="chips">
       {options.map((item) => (
-        <Chip key={item} active={value.includes(item)} onClick={() => toggle(item)} disabled={!!max && !value.includes(item) && value.length >= max}>
+        <Chip
+          key={item}
+          active={value.includes(item)}
+          onClick={() => toggle(item)}
+          disabled={!!max && !value.includes(item) && value.length >= max}
+        >
           {item}
         </Chip>
       ))}
@@ -71,6 +112,8 @@ function App() {
   const [manualMode, setManualMode] = useState(false);
   const [manualText, setManualText] = useState('');
   const [notice, setNotice] = useState('');
+  const [fastMode, setFastMode] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>('patient');
 
   useEffect(() => {
     if (!manualMode) setManualText(generated);
@@ -79,7 +122,8 @@ function App() {
   const text = manualMode ? manualText : generated;
   const safetyComplete = form.safety.length > 0 || form.safetyOther.trim().length > 0;
 
-  const patch = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((prev) => ({ ...prev, [key]: value }));
+  const patch = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
 
   const applyPreset = () => {
     setForm({ ...uncomplicatedPreset });
@@ -91,6 +135,7 @@ function App() {
     setForm({ ...emptyForm });
     setManualMode(false);
     setManualText('');
+    setActiveSection('patient');
     setNotice('Vorlage zurückgesetzt.');
   };
 
@@ -100,13 +145,24 @@ function App() {
     setNotice('Text in die Zwischenablage kopiert.');
   };
 
-  const toggleManual = () => {
-    if (!manualMode) setManualText(generated);
-    setManualMode((v) => !v);
+  const handleEditButton = () => {
+    if (manualMode) {
+      setManualMode(false);
+      setManualText(generated);
+      setNotice('Text aus dem Formular neu erzeugt.');
+      return;
+    }
+    setManualText(generated);
+    setManualMode(true);
   };
 
   const setUrineStatus = (status: FormState['urineStatus']) => {
-    setForm((prev) => ({ ...prev, urineStatus: status, urinePositive: status === 'positiv' ? prev.urinePositive : [], urineOther: status === 'positiv' ? prev.urineOther : '' }));
+    setForm((prev) => ({
+      ...prev,
+      urineStatus: status,
+      urinePositive: status === 'positiv' ? prev.urinePositive : [],
+      urineOther: status === 'positiv' ? prev.urineOther : '',
+    }));
   };
 
   const setDetoxMedication = (next: string[]) => {
@@ -115,35 +171,56 @@ function App() {
     else patch('detoxMedication', next.filter((m) => m !== none));
   };
 
-  const addMedication = () => patch('additionalMedication', [...form.additionalMedication, { id: uid(), name: '', reason: '' }]);
+  const addMedication = () =>
+    patch('additionalMedication', [...form.additionalMedication, { id: uid(), name: '', reason: '' }]);
   const updateMedication = (id: string, key: keyof Omit<MedicationReason, 'id'>, value: string) =>
     patch('additionalMedication', form.additionalMedication.map((m) => (m.id === id ? { ...m, [key]: value } : m)));
-  const removeMedication = (id: string) => patch('additionalMedication', form.additionalMedication.filter((m) => m.id !== id));
+  const removeMedication = (id: string) =>
+    patch('additionalMedication', form.additionalMedication.filter((m) => m.id !== id));
 
-  const addPrior = () => patch('priorMedication', [...form.priorMedication, { id: uid(), name: '', action: 'fortgeführt' }]);
+  const addPrior = () =>
+    patch('priorMedication', [...form.priorMedication, { id: uid(), name: '', action: 'fortgeführt' }]);
   const updatePrior = (id: string, key: keyof Omit<PriorMedication, 'id'>, value: string) =>
     patch('priorMedication', form.priorMedication.map((m) => (m.id === id ? { ...m, [key]: value } : m)));
-  const removePrior = (id: string) => patch('priorMedication', form.priorMedication.filter((m) => m.id !== id));
+  const removePrior = (id: string) =>
+    patch('priorMedication', form.priorMedication.filter((m) => m.id !== id));
+
+  const sectionProps = (id: string, defaultOpen = false) => ({
+    id,
+    fastMode,
+    activeSection,
+    onOpen: setActiveSection,
+    defaultOpen,
+  });
 
   return (
     <div className="app-shell">
-      <header className="topbar">
+      <header className="topbar compact-topbar">
         <div>
-          <p className="eyebrow">EB SUCHT</p>
-          <h1>Therapie &amp; Verlauf</h1>
-          <p className="subtitle">Lokaler Textgenerator für den Entlassungsbrief</p>
+          <h1 className="brand-title">Entlassungsbriefhilfe Abhängigkeitserkrankungen</h1>
+          <p className="subtitle">Textgenerator für den klinischen Behandlungsverlauf</p>
         </div>
-        <div className="privacy-badge"><span className="dot" /> Lokal · keine Übertragung</div>
       </header>
 
       <main className="layout">
         <div className="form-column">
           <div className="quick-actions panel">
             <button className="secondary" type="button" onClick={applyPreset}>Preset: unkomplizierter Verlauf</button>
+            <label className="mode-toggle">
+              <input
+                type="checkbox"
+                checked={fastMode}
+                onChange={(event) => {
+                  setFastMode(event.target.checked);
+                  if (event.target.checked && !activeSection) setActiveSection('patient');
+                }}
+              />
+              <span>Fast-Mode</span>
+            </label>
             <button className="ghost danger" type="button" onClick={reset}>Zurücksetzen</button>
           </div>
 
-          <Section title="1 · Patient & Aufnahme" open>
+          <Section title="1 · Patient & Aufnahme" {...sectionProps('patient', true)}>
             <div className="field-grid two">
               <label>
                 <span>Geschlecht</span>
@@ -156,19 +233,23 @@ function App() {
               <label>
                 <span>Aufnahmeart</span>
                 <select value={form.admissionMode} onChange={(e) => patch('admissionMode', e.target.value as FormState['admissionMode'])}>
-                  <option value="">Bitte wählen</option><option value="voluntary">freiwillig</option><option value="involuntary">unfreiwillig</option>
+                  <option value="">Bitte wählen</option>
+                  <option value="voluntary">freiwillig</option>
+                  <option value="involuntary">unfreiwillig</option>
                 </select>
               </label>
               <label>
                 <span>Stationsführung</span>
                 <select value={form.wardType} onChange={(e) => patch('wardType', e.target.value as FormState['wardType'])}>
-                  <option value="">Bitte wählen</option><option value="open">offen geführt</option><option value="closed">geschlossen geführt</option>
+                  <option value="">Bitte wählen</option>
+                  <option value="open">offen geführt</option>
+                  <option value="closed">geschlossen geführt</option>
                 </select>
               </label>
             </div>
           </Section>
 
-          <Section title="2 · Aufnahmegrund / Behandlungsziel" open>
+          <Section title="2 · Aufnahmegrund / Behandlungsziel" {...sectionProps('goal', true)}>
             <div className="segmented wide">
               <button className={form.intakeMode === 'reason' ? 'selected' : ''} onClick={() => patch('intakeMode', 'reason')} type="button">Grund der Aufnahme</button>
               <button className={form.intakeMode === 'goal' ? 'selected' : ''} onClick={() => patch('intakeMode', 'goal')} type="button">Ziel der Behandlung</button>
@@ -189,38 +270,63 @@ function App() {
             )}
           </Section>
 
-          <Section title="3 · Urinkontrolle & AAK">
+          <Section title="3 · Aufnahme-Screening" {...sectionProps('screening')}>
             <div className="segmented wide">
               <button className={form.urineStatus === 'unauffaellig' ? 'selected' : ''} onClick={() => setUrineStatus('unauffaellig')} type="button">Urinkontrolle unauffällig</button>
               <button className={form.urineStatus === 'positiv' ? 'selected' : ''} onClick={() => setUrineStatus('positiv')} type="button">Positive Nachweise</button>
             </div>
-            {form.urineStatus === 'positiv' && <><MultiChips options={substances} value={form.urinePositive} onChange={(v) => patch('urinePositive', v)} /><input value={form.urineOther} onChange={(e) => patch('urineOther', e.target.value)} placeholder="Weiterer positiver Nachweis" /></>}
-            <label className="switch-row"><input type="checkbox" checked={form.aakEnabled} onChange={(e) => patch('aakEnabled', e.target.checked)} /><span>AAK bei Aufnahme dokumentieren</span></label>
-            {form.aakEnabled && <label><span>AAK in ‰</span><input inputMode="decimal" value={form.aak} onChange={(e) => patch('aak', e.target.value.replace(',', '.'))} placeholder="z. B. 1.2" /></label>}
+            {form.urineStatus === 'positiv' && (
+              <>
+                <MultiChips options={urineMarkers} value={form.urinePositive} onChange={(v) => patch('urinePositive', v)} />
+                <input value={form.urineOther} onChange={(e) => patch('urineOther', e.target.value)} placeholder="Weiterer positiver Nachweis" />
+              </>
+            )}
+
+            <label className="switch-row">
+              <input type="checkbox" checked={form.aakEnabled} onChange={(e) => patch('aakEnabled', e.target.checked)} />
+              <span>AAK bei Aufnahme dokumentieren</span>
+            </label>
+            {form.aakEnabled && (
+              <label><span>AAK in ‰</span><input inputMode="decimal" value={form.aak} onChange={(e) => patch('aak', e.target.value.replace(',', '.'))} placeholder="z. B. 1,2" /></label>
+            )}
+
+            <label className="switch-row">
+              <input type="checkbox" checked={form.capillaryBloodEnabled} onChange={(e) => patch('capillaryBloodEnabled', e.target.checked)} />
+              <span>Kapillarblut ergänzen</span>
+            </label>
+            {form.capillaryBloodEnabled && (
+              <label>
+                <span>Nachgewiesene Substanz</span>
+                <input value={form.capillaryBloodSubstance} onChange={(e) => patch('capillaryBloodSubstance', e.target.value)} placeholder="Droge einfügen" />
+              </label>
+            )}
           </Section>
 
-          <Section title="4 · Entzugssymptomatik" hint="Nur dokumentierte Symptome auswählen">
+          <Section title="4 · Entzugssymptomatik" hint="Nur dokumentierte Symptome auswählen" {...sectionProps('withdrawal')}>
             <div className="field-grid two">
-              <label><span>Ausprägung</span><select value={form.withdrawalSeverity} onChange={(e) => patch('withdrawalSeverity', e.target.value as FormState['withdrawalSeverity'])}><option value="">ohne Angabe</option><option>leicht</option><option>mittelgradig</option><option>ausgeprägt</option></select></label>
+              <label>
+                <span>Ausprägung</span>
+                <select value={form.withdrawalSeverity} onChange={(e) => patch('withdrawalSeverity', e.target.value as FormState['withdrawalSeverity'])}>
+                  <option value="">ohne Angabe</option>
+                  <option>leicht</option>
+                  <option>mittelgradig</option>
+                  <option>ausgeprägt</option>
+                </select>
+              </label>
             </div>
             <MultiChips options={withdrawalSymptoms} value={form.withdrawalSymptoms} onChange={(v) => patch('withdrawalSymptoms', v)} />
             <input value={form.withdrawalOther} onChange={(e) => patch('withdrawalOther', e.target.value)} placeholder="Weiteres Entzugssymptom" />
-            <div className="suggestions">
-              <span className="field-title">Schnellauswahl typischer Symptomgruppen</span>
-              <div className="chips compact">
-                {Object.entries(symptomSuggestions).map(([label, symptoms]) => (
-                  <button key={label} type="button" className="chip suggestion" onClick={() => patch('withdrawalSymptoms', Array.from(new Set([...form.withdrawalSymptoms, ...symptoms])))}>{label}</button>
-                ))}
-              </div>
-            </div>
           </Section>
 
-          <Section title="5 · Medikamentöse Behandlung">
+          <Section title="5 · Medikamentöse Behandlung & Verlegung" {...sectionProps('medication')}>
             <span className="field-title">Entzugsbehandlung</span>
             <MultiChips options={detoxMedications} value={form.detoxMedication} onChange={setDetoxMedication} />
             <input value={form.detoxMedicationOther} onChange={(e) => patch('detoxMedicationOther', e.target.value)} placeholder="Anderes Medikament (ohne Dosis)" />
 
-            <div className="repeater-head"><span className="field-title">Weitere Medikation</span><button type="button" className="small-button" onClick={addMedication}>+ Medikament</button></div>
+            <div className="repeater-head">
+              <span className="field-title">Weitere Medikation</span>
+              <button type="button" className="small-button" onClick={addMedication}>+ Medikament</button>
+            </div>
             {form.additionalMedication.map((med) => (
               <div className="repeater" key={med.id}>
                 <input value={med.name} onChange={(e) => updateMedication(med.id, 'name', e.target.value)} placeholder="Medikament" />
@@ -229,53 +335,115 @@ function App() {
               </div>
             ))}
 
-            <div className="repeater-head"><span className="field-title">Vormedikation</span><button type="button" className="small-button" onClick={addPrior}>+ Vormedikation</button></div>
+            <div className="repeater-head">
+              <span className="field-title">Vormedikation</span>
+              <button type="button" className="small-button" onClick={addPrior}>+ Vormedikation</button>
+            </div>
             {form.priorMedication.map((med) => (
               <div className="repeater" key={med.id}>
                 <input value={med.name} onChange={(e) => updatePrior(med.id, 'name', e.target.value)} placeholder="Medikament" />
-                <select value={med.action} onChange={(e) => updatePrior(med.id, 'action', e.target.value)}><option>fortgeführt</option><option>abgesetzt</option><option>verändert</option></select>
+                <select value={med.action} onChange={(e) => updatePrior(med.id, 'action', e.target.value)}>
+                  <option>fortgeführt</option>
+                  <option>abgesetzt</option>
+                  <option>reduziert</option>
+                  <option>erhöht</option>
+                </select>
                 <button type="button" className="icon-button" aria-label="Vormedikation entfernen" onClick={() => removePrior(med.id)}>×</button>
               </div>
             ))}
+
+            <div className="subpanel">
+              <label className="switch-row">
+                <input type="checkbox" checked={form.transferEnabled} onChange={(e) => patch('transferEnabled', e.target.checked)} />
+                <span>Stationsverlegung dokumentieren</span>
+              </label>
+              {form.transferEnabled && (
+                <div className="field-grid two">
+                  <label>
+                    <span>Von</span>
+                    <select value={form.transferFrom} onChange={(e) => patch('transferFrom', e.target.value as FormState['wardType'])}>
+                      <option value="">Bitte wählen</option>
+                      <option value="closed">geschlossen geführt</option>
+                      <option value="open">offen geführt</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Nach</span>
+                    <select value={form.transferTo} onChange={(e) => patch('transferTo', e.target.value as FormState['wardType'])}>
+                      <option value="">Bitte wählen</option>
+                      <option value="open">offen geführt</option>
+                      <option value="closed">geschlossen geführt</option>
+                    </select>
+                  </label>
+                </div>
+              )}
+            </div>
           </Section>
 
-          <Section title="6 · Stationsalltag">
+          <Section title="6 · Stationsalltag" {...sectionProps('ward')}>
             <MultiChips options={wardBehaviors} value={form.wardBehavior} onChange={(v) => patch('wardBehavior', v)} />
             <input value={form.wardBehaviorOther} onChange={(e) => patch('wardBehaviorOther', e.target.value)} placeholder="Weitere Beschreibung" />
           </Section>
 
-          <Section title="7 · Gruppentherapie" hint={`${form.groups.length}/4 Gruppen`}>
+          <Section title="7 · Gruppentherapie" hint={`${form.groups.length}/4 Gruppen`} {...sectionProps('groups')}>
             <MultiChips options={groups} value={form.groups} max={4} onChange={(v) => patch('groups', v)} />
-            <label><span>Teilnahme</span><select value={form.groupParticipation} onChange={(e) => patch('groupParticipation', e.target.value)}><option value="">ohne Angabe</option><option>regelmäßig und konstruktiv</option><option>regelmäßig, jedoch eher zurückhaltend</option><option>unregelmäßig</option><option>nicht</option></select></label>
+            <label>
+              <span>Teilnahme</span>
+              <select value={form.groupParticipation} onChange={(e) => patch('groupParticipation', e.target.value)}>
+                <option value="">ohne Angabe</option>
+                <option>regelmäßig und konstruktiv</option>
+                <option>regelmäßig, jedoch eher zurückhaltend</option>
+                <option>unregelmäßig</option>
+                <option>nicht</option>
+              </select>
+            </label>
           </Section>
 
-          <Section title="8 · Weitere therapeutische Maßnahmen">
+          <Section title="8 · Weitere therapeutische Maßnahmen" {...sectionProps('measures')}>
             <MultiChips options={therapeuticMeasures} value={form.therapeuticMeasures} onChange={(v) => patch('therapeuticMeasures', v)} />
             <input value={form.therapeuticMeasuresOther} onChange={(e) => patch('therapeuticMeasuresOther', e.target.value)} placeholder="Sonstige Maßnahme" />
           </Section>
 
-          <Section title="9 · Behandlungsergebnis">
+          <Section title="9 · Behandlungsergebnis" {...sectionProps('outcomes')}>
             <MultiChips options={outcomes} value={form.outcomes} onChange={(v) => patch('outcomes', v)} />
             <textarea rows={2} value={form.outcomesOther} onChange={(e) => patch('outcomesOther', e.target.value)} placeholder="Weiteres Behandlungsergebnis" />
           </Section>
 
-          <Section title="10 · Entlassung" open>
+          <Section title="10 · Entlassung" {...sectionProps('discharge', true)}>
             <div className="field-grid two">
               <label><span>Entlassdatum</span><input type="date" value={form.dischargeDate} onChange={(e) => patch('dischargeDate', e.target.value)} /></label>
-              <label><span>Entlassungsart</span><select value={form.dischargeType} onChange={(e) => patch('dischargeType', e.target.value as FormState['dischargeType'])}><option value="">Bitte wählen</option><option value="regulaer">regulär</option><option value="eigenwunsch">auf eigenen Wunsch</option><option value="gegen_rat">gegen ärztlichen Rat</option><option value="disziplinarisch">disziplinarisch</option><option value="langzeittherapie">direkte Aufnahme Langzeittherapie/Reha</option><option value="therapieabbruch">Therapieabbruch</option><option value="sonstiges">sonstiger Grund</option></select></label>
+              <label>
+                <span>Entlassungsart</span>
+                <select value={form.dischargeType} onChange={(e) => patch('dischargeType', e.target.value as FormState['dischargeType'])}>
+                  <option value="">Bitte wählen</option>
+                  <option value="regulaer">regulär</option>
+                  <option value="eigenwunsch">auf eigenen Wunsch</option>
+                  <option value="gegen_rat">gegen ärztlichen Rat</option>
+                  <option value="disziplinarisch">disziplinarisch</option>
+                  <option value="langzeittherapie">direkte Aufnahme Langzeittherapie/Reha</option>
+                  <option value="therapieabbruch">Therapieabbruch</option>
+                  <option value="sonstiges">sonstiger Grund</option>
+                </select>
+              </label>
             </div>
-            {form.dischargeType === 'sonstiges' && <input value={form.dischargeOther} onChange={(e) => patch('dischargeOther', e.target.value)} placeholder="Sonstiger Entlassungsgrund als Satzteil" />}
+            {form.dischargeType === 'sonstiges' && (
+              <input value={form.dischargeOther} onChange={(e) => patch('dischargeOther', e.target.value)} placeholder="Sonstiger Entlassungsgrund als Satzteil" />
+            )}
           </Section>
 
-          <Section title="11 · Gefährdungsbeurteilung" hint="Pflicht vor Kopieren" open>
+          <Section title="11 · Gefährdungsbeurteilung & Opioid-Aufklärung" hint="Gefährdungsbeurteilung vor Kopieren" {...sectionProps('safety', true)}>
             <div className={`required-box ${safetyComplete ? 'complete' : ''}`}>
               <MultiChips options={safetyOptions} value={form.safety} onChange={(v) => patch('safety', v)} />
               <textarea rows={2} value={form.safetyOther} onChange={(e) => patch('safetyOther', e.target.value)} placeholder="Alternativer / ergänzender klinischer Freitext" />
-              <p>{safetyComplete ? 'Dokumentiert.' : 'Bitte vor dem Kopieren aktiv dokumentieren. Es erfolgt keine automatische Vorauswahl.'}</p>
+              <p>{safetyComplete ? 'Gefährdungsbeurteilung dokumentiert.' : 'Bitte vor dem Kopieren aktiv dokumentieren.'}</p>
             </div>
+            <label className="switch-row">
+              <input type="checkbox" checked={form.opioidToleranceWarning} onChange={(e) => patch('opioidToleranceWarning', e.target.checked)} />
+              <span>Bei Opioidabhängigkeit: Aufklärung über Toleranzverlust und Überdosierungsrisiko dokumentieren</span>
+            </label>
           </Section>
 
-          <Section title="12 · Weiterbehandlung / Empfehlungen">
+          <Section title="12 · Weiterbehandlung / Empfehlungen" {...sectionProps('followup')}>
             <MultiChips options={followUpOptions} value={form.followUp} onChange={(v) => patch('followUp', v)} />
             <input value={form.followUpOther} onChange={(e) => patch('followUpOther', e.target.value)} placeholder="Sonstige Empfehlung" />
             <label><span>Optionaler Termin</span><input type="date" value={form.followUpDate} onChange={(e) => patch('followUpDate', e.target.value)} /></label>
@@ -285,7 +453,7 @@ function App() {
         <aside className="preview-column">
           <div className="preview panel">
             <div className="preview-head">
-              <div><p className="eyebrow">LIVE-VORSCHAU</p><h2>Therapie und Verlauf</h2></div>
+              <p className="eyebrow">LIVE-VORSCHAU</p>
               <span className={`status ${manualMode ? 'manual' : ''}`}>{manualMode ? 'Manuell' : 'Automatisch'}</span>
             </div>
             {manualMode ? (
@@ -294,16 +462,13 @@ function App() {
               <div className="letter-text">{text || 'Auswahl treffen, um den Fließtext zu erzeugen.'}</div>
             )}
             <div className="preview-actions">
-              <button type="button" className="secondary" onClick={toggleManual}>{manualMode ? 'Automatik anzeigen' : 'Manuell bearbeiten'}</button>
-              {manualMode && <button type="button" className="ghost" onClick={() => { setManualMode(false); setManualText(generated); }}>Aus Formular neu erzeugen</button>}
+              <button type="button" className="secondary" onClick={handleEditButton}>
+                {manualMode ? 'Aus Formular neu erzeugen' : 'Manuell bearbeiten'}
+              </button>
               <button type="button" className="primary" disabled={!safetyComplete || !text.trim()} onClick={copy}>In Zwischenablage kopieren</button>
             </div>
             {!safetyComplete && <div className="validation-note">Kopieren ist erst nach dokumentierter Gefährdungsbeurteilung möglich.</div>}
             {notice && <div className="notice" role="status">{notice}</div>}
-          </div>
-          <div className="panel info-panel">
-            <strong>Datenschutz</strong>
-            <p>Die Anwendung arbeitet ausschließlich im Browser. Es gibt kein Backend, keine Telemetrie und keine Speicherung von Patientendaten.</p>
           </div>
         </aside>
       </main>
