@@ -36,7 +36,7 @@ describe('generateLetter', () => {
     });
 
     expect(text).toContain('positive Befunde für Opiate, EtG und Pregabalin');
-    expect(text).toContain('Im Kapillarblut erfolgte zusätzlich der Nachweis von synthetischen Cannabinoiden.');
+    expect(text).toContain('Im Kapillarblut zeigte sich zusätzlich ein positiver Befund für synthetische Cannabinoide.');
   });
 
   it('renders new treatment goals, transfer and medication changes', () => {
@@ -53,7 +53,7 @@ describe('generateLetter', () => {
       transferTo: 'open',
     });
 
-    expect(text).toContain('Behandlungsziele waren eine qualifizierte Entgiftungsbehandlung sowie den Übergang in eine Substitutionsbehandlung.');
+    expect(text).toContain('Behandlungsziele waren eine qualifizierte Entgiftungsbehandlung sowie der Übergang in eine Substitutionsbehandlung.');
     expect(text).toContain('Die bestehende Medikation mit Sertralin wurde reduziert.');
     expect(text).toContain('Die bestehende Medikation mit Quetiapin wurde erhöht.');
     expect(text).toContain('Im weiteren Behandlungsverlauf erfolgte die Verlegung von der geschlossen geführten auf die offen geführte Station.');
