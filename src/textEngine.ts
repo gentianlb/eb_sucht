@@ -48,8 +48,8 @@ function detoxSubstanceAfterVon(value: string): string {
   const forms: Record<string, string> = {
     'synthetische Cannabinoide (Spice)': 'synthetischen Cannabinoiden (Spice)',
     'andere Opioide': 'anderen Opioiden',
-    'Benzodiazepine': 'Benzodiazepinen',
-    'Halluzinogene': 'Halluzinogenen',
+    Benzodiazepine: 'Benzodiazepinen',
+    Halluzinogene: 'Halluzinogenen',
   };
   return forms[value] ?? value;
 }
@@ -64,15 +64,16 @@ function renderTreatmentGoals(state: FormState): string[] {
     }
 
     const forms: Record<string, string> = {
-      'qualifizierte Entzugsbehandlung': 'eine qualifizierte Entzugsbehandlung',
-      'Substitution/Einstellung': 'eine Substitution bzw. medikamentöse Einstellung',
+      'qualifizierte Entgiftungsbehandlung': 'eine qualifizierte Entgiftungsbehandlung',
+      Einstellung: 'eine Einstellung',
+      'Übergang in Substitutionsbehandlung': 'den Übergang in eine Substitutionsbehandlung',
       'Beantragung einer stationären Langzeittherapie': 'die Beantragung einer stationären Langzeittherapie',
       'nahtloser Übergang in eine stationäre Langzeittherapie': 'die Vorbereitung eines nahtlosen Übergangs in eine stationäre Langzeittherapie',
       'Vermittlung in betreutes Wohnen': 'die Vermittlung in betreutes Wohnen',
       'ambulante Weiterbehandlung': 'die Organisation einer ambulanten Weiterbehandlung',
       'psychiatrische Stabilisierung': 'eine psychiatrische Stabilisierung',
       'medikamentöse Einstellung': 'eine medikamentöse Einstellung',
-      'Krisenintervention': 'eine Krisenintervention',
+      Krisenintervention: 'eine Krisenintervention',
     };
 
     return forms[goal] ?? goal;
@@ -95,6 +96,7 @@ function renderMeasure(measure: string): string {
     'Vermittlung in Selbsthilfe': 'die Vermittlung in Selbsthilfeangebote',
     'Beantragung einer Langzeittherapie': 'die Beantragung einer Langzeittherapie',
     'Organisation einer Wohnperspektive': 'die Organisation einer Wohnperspektive',
+    'testpsychologische Diagnostik': 'eine testpsychologische Diagnostik',
   };
   return forms[measure] ?? measure;
 }
@@ -130,6 +132,10 @@ function renderFollowUp(option: string): string {
     Institutsambulanz: 'die Anbindung an eine Institutsambulanz',
   };
   return forms[option] ?? option;
+}
+
+function wardLabel(ward: FormState['wardType']): string {
+  return ward === 'open' ? 'offen geführte' : 'geschlossen geführte';
 }
 
 export function generateLetter(state: FormState): string {
@@ -168,6 +174,10 @@ export function generateLetter(state: FormState): string {
     sentences.push(`Bei Aufnahme betrug die Atemalkoholkonzentration ${formatGermanDecimal(state.aak)} ‰.`);
   }
 
+  if (state.capillaryBloodEnabled && clean(state.capillaryBloodSubstance)) {
+    sentences.push(`Im Kapillarblut erfolgte zusätzlich der Nachweis von ${clean(state.capillaryBloodSubstance)}.`);
+  }
+
   const symptoms = [...state.withdrawalSymptoms, clean(state.withdrawalOther)].filter(Boolean);
   if (symptoms.length) {
     const severity = state.withdrawalSeverity ? `${state.withdrawalSeverity}e ` : '';
@@ -196,14 +206,20 @@ export function generateLetter(state: FormState): string {
   state.priorMedication.forEach((med) => {
     const medication = clean(med.name);
     if (!medication) return;
-    const action =
-      med.action === 'fortgeführt'
-        ? 'unverändert fortgeführt'
-        : med.action === 'abgesetzt'
-          ? 'abgesetzt'
-          : 'angepasst';
-    sentences.push(`Die bestehende Medikation mit ${medication} wurde ${action}.`);
+    const actionMap: Record<FormState['priorMedication'][number]['action'], string> = {
+      fortgeführt: 'unverändert fortgeführt',
+      abgesetzt: 'abgesetzt',
+      reduziert: 'reduziert',
+      erhöht: 'erhöht',
+    };
+    sentences.push(`Die bestehende Medikation mit ${medication} wurde ${actionMap[med.action]}.`);
   });
+
+  if (state.transferEnabled && state.transferFrom && state.transferTo && state.transferFrom !== state.transferTo) {
+    sentences.push(
+      `Im weiteren Behandlungsverlauf erfolgte die Verlegung von der ${wardLabel(state.transferFrom)}n auf die ${wardLabel(state.transferTo)} Station.`,
+    );
+  }
 
   const behavior = [...state.wardBehavior, clean(state.wardBehaviorOther)].filter(Boolean);
   if (behavior.length) {
@@ -267,6 +283,12 @@ export function generateLetter(state: FormState): string {
   }
   if (clean(state.safetyOther)) {
     sentences.push(sentence(state.safetyOther));
+  }
+
+  if (state.opioidToleranceWarning) {
+    sentences.push(
+      'Bei Opioidabhängigkeit erfolgte zudem eine Aufklärung über den nach Abstinenz zu erwartenden Toleranzverlust und das damit verbundene erhöhte Überdosierungsrisiko bei erneutem Opioidkonsum.',
+    );
   }
 
   const followUp = [...state.followUp.map(renderFollowUp), clean(state.followUpOther)].filter(Boolean);
