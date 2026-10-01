@@ -13,13 +13,29 @@ export const substances = [
   'Benzodiazepine',
   'Pregabalin',
   'Z-Substanzen',
+  'Ketamin',
   'Halluzinogene',
+];
+
+export const urineMarkers = [
+  'Opiate',
+  'Benzodiazepine',
+  'Oxycodon',
+  'EtG',
+  'Cannabinoide',
+  'Amphetamine',
+  'Ketamin',
+  'Cocainmetabolit',
+  'Methadonmetabolit',
+  'Buprenorphin',
+  'Pregabalin',
 ];
 
 export const treatmentGoals = [
   'Entgiftungsbehandlung',
-  'qualifizierte Entzugsbehandlung',
-  'Substitution/Einstellung',
+  'qualifizierte Entgiftungsbehandlung',
+  'Einstellung',
+  'Übergang in Substitutionsbehandlung',
   'Beantragung einer stationären Langzeittherapie',
   'nahtloser Übergang in eine stationäre Langzeittherapie',
   'Vermittlung in betreutes Wohnen',
@@ -61,15 +77,6 @@ export const withdrawalSymptoms = [
   'Delir',
 ];
 
-export const symptomSuggestions: Record<string, string[]> = {
-  Alkohol: ['Tremor', 'Schwitzen', 'Tachykardie', 'Blutdruckanstieg', 'Übelkeit', 'Erbrechen', 'innere Unruhe', 'Angst', 'Schlafstörungen', 'Reizbarkeit', 'Wahrnehmungsstörungen/Halluzinationen', 'Krampfanfälle', 'Delir'],
-  Opioide: ['Craving', 'Mydriasis', 'Rhinorrhö/Tränenfluss', 'Gänsehaut', 'Schwitzen', 'Muskel-/Gliederschmerzen', 'Bauchbeschwerden', 'Übelkeit', 'Erbrechen', 'Diarrhö', 'innere Unruhe', 'Angst', 'Schlafstörungen'],
-  Cannabinoide: ['Reizbarkeit', 'Angst', 'innere Unruhe', 'Schlafstörungen', 'depressive Stimmung', 'Kopfschmerzen', 'Schwitzen', 'Bauchbeschwerden', 'Tremor'],
-  Sedativa: ['Angst', 'innere Unruhe', 'Schlafstörungen', 'Tremor', 'Schwitzen', 'Reizbarkeit', 'Wahrnehmungsstörungen/Halluzinationen', 'Desorientiertheit/Verwirrtheit', 'Krampfanfälle', 'Delir'],
-  Stimulanzien: ['Craving', 'Antriebsminderung', 'depressive Stimmung', 'Reizbarkeit', 'Schlafstörungen', 'vermehrtes Schlafbedürfnis', 'Konzentrationsstörungen', 'innere Unruhe', 'Angst'],
-  Pregabalin: ['Angst', 'innere Unruhe', 'Schlafstörungen', 'Schwitzen', 'Übelkeit', 'Kopfschmerzen', 'Tremor', 'Reizbarkeit', 'Krampfanfälle'],
-};
-
 export const detoxMedications = [
   'keine spezifische medikamentöse Entzugsbehandlung',
   'Clonazepam (Rivotril)',
@@ -77,7 +84,6 @@ export const detoxMedications = [
   'L-Polamidon',
   'Buprenorphin',
   'Diazepam',
-  'Oxazepam',
 ];
 
 export const wardBehaviors = [
@@ -114,6 +120,7 @@ export const therapeuticMeasures = [
   'Vermittlung in Selbsthilfe',
   'Beantragung einer Langzeittherapie',
   'Organisation einer Wohnperspektive',
+  'testpsychologische Diagnostik',
 ];
 
 export const outcomes = [
@@ -161,18 +168,28 @@ export const emptyForm: FormState = {
   treatmentGoals: [],
   detoxSubstances: [],
   detoxOther: '',
+
   urineStatus: '',
   urinePositive: [],
   urineOther: '',
   aakEnabled: false,
   aak: '',
+  capillaryBloodEnabled: false,
+  capillaryBloodSubstance: '',
+
   withdrawalSeverity: '',
   withdrawalSymptoms: [],
   withdrawalOther: '',
+
   detoxMedication: [],
   detoxMedicationOther: '',
   additionalMedication: [],
   priorMedication: [],
+
+  transferEnabled: false,
+  transferFrom: '',
+  transferTo: '',
+
   wardBehavior: [],
   wardBehaviorOther: '',
   groups: [],
@@ -181,10 +198,13 @@ export const emptyForm: FormState = {
   therapeuticMeasuresOther: '',
   outcomes: [],
   outcomesOther: '',
+
   dischargeType: '',
   dischargeOther: '',
   safety: [],
   safetyOther: '',
+  opioidToleranceWarning: false,
+
   followUp: [],
   followUpOther: '',
   followUpDate: '',
