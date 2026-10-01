@@ -56,13 +56,20 @@ function Section({
   activeSection: string | null;
   onOpen: (id: string) => void;
 }) {
+  const [localOpen, setLocalOpen] = useState(defaultOpen);
+  const isOpen = fastMode ? activeSection === id : localOpen;
+
   return (
     <details
       className="section"
-      open={fastMode ? activeSection === id : undefined}
-      defaultOpen={fastMode ? undefined : defaultOpen}
+      open={isOpen}
       onToggle={(event) => {
-        if (fastMode && event.currentTarget.open) onOpen(id);
+        const nextOpen = event.currentTarget.open;
+        if (fastMode) {
+          if (nextOpen) onOpen(id);
+        } else {
+          setLocalOpen(nextOpen);
+        }
       }}
     >
       <summary>
