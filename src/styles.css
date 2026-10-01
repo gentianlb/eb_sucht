@@ -124,3 +124,34 @@ input::placeholder, textarea::placeholder { color: #596777; }
   .preview-actions .primary { grid-column: auto; }
   .chip { min-height: 40px; }
 }
+
+
+/* Requested compact header and workflow controls */
+.compact-topbar { align-items: center; margin-bottom: 18px; }
+.brand-title {
+  color: var(--accent);
+  font-size: 1.2rem;
+  line-height: 1.35;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+.quick-actions { align-items: center; }
+.mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid #2a3743;
+  border-radius: 10px;
+  background: #101821;
+  color: #d2dde8;
+  font-size: .82rem;
+  font-weight: 700;
+}
+.mode-toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent);
+}
+.preview-head > .eyebrow { margin-bottom: 0; }
