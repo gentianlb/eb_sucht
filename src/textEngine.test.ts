@@ -4,7 +4,7 @@ import { generateLetter, joinGerman } from './textEngine';
 
 describe('joinGerman', () => {
   it('joins multiple values naturally', () => {
-    expect(joinGerman(['Alkohol', 'Oxycodon', 'Cannabis'])).toBe('Alkohol, Oxycodon und Cannabis');
+    expect(joinGerman(['Opiate', 'EtG', 'Pregabalin'])).toBe('Opiate, EtG und Pregabalin');
     expect(joinGerman(['freundlich und zugewandt', 'kooperativ'], 'sowie')).toBe('freundlich und zugewandt sowie kooperativ');
   });
 });
@@ -25,58 +25,49 @@ describe('generateLetter', () => {
     expect(text).toContain('Wir entließen die Patientin regulär aus unserer Behandlung.');
   });
 
-  it('renders detox substances and positive urine findings', () => {
+  it('renders current urine markers and capillary blood', () => {
     const text = generateLetter({
       ...emptyForm,
       name: 'M.',
-      treatmentGoals: ['Entgiftungsbehandlung'],
-      detoxSubstances: ['Oxycodon', 'synthetische Cannabinoide (Spice)'],
       urineStatus: 'positiv',
-      urinePositive: ['Oxycodon', 'Benzodiazepine'],
+      urinePositive: ['Opiate', 'EtG', 'Pregabalin'],
+      capillaryBloodEnabled: true,
+      capillaryBloodSubstance: 'synthetische Cannabinoide',
     });
 
-    expect(text).toContain('Ziel der Behandlung war eine Entgiftungsbehandlung von Oxycodon und synthetischen Cannabinoiden (Spice).');
-    expect(text).toContain('positive Befunde für Oxycodon und Benzodiazepine');
+    expect(text).toContain('positive Befunde für Opiate, EtG und Pregabalin');
+    expect(text).toContain('Im Kapillarblut erfolgte zusätzlich der Nachweis von synthetischen Cannabinoiden.');
   });
 
-  it('renders a complex example as fluent clinical prose', () => {
+  it('renders new treatment goals, transfer and medication changes', () => {
     const text = generateLetter({
       ...emptyForm,
-      gender: 'male',
       name: 'M.',
-      dischargeDate: '2026-10-02',
-      admissionMode: 'voluntary',
-      wardType: 'open',
-      intakeMode: 'goal',
-      treatmentGoals: ['qualifizierte Entzugsbehandlung', 'Beantragung einer stationären Langzeittherapie'],
-      urineStatus: 'positiv',
-      urinePositive: ['Alkohol', 'Cannabis', 'Pregabalin'],
-      aakEnabled: true,
-      aak: '1.7',
-      withdrawalSeverity: 'leicht',
-      withdrawalSymptoms: ['Übelkeit', 'Schwitzen', 'Bauchbeschwerden'],
-      detoxMedication: ['Clonazepam (Rivotril)'],
-      additionalMedication: [{ id: '1', name: 'Dominal', reason: 'Schlafstörungen' }],
-      priorMedication: [{ id: '2', name: 'Sertralin', action: 'fortgeführt' }],
-      wardBehavior: ['freundlich und zugewandt', 'kooperativ'],
-      groups: ['Psychoedukation', 'themenoffene Psychologengruppe'],
-      groupParticipation: 'regelmäßig und konstruktiv',
-      therapeuticMeasures: ['psychologische Einzelgespräche', 'Bezugspflegegespräche', 'Beantragung einer Langzeittherapie'],
-      outcomes: ['Therapieplatz beantragt', 'körperliche Entgiftung abgeschlossen'],
-      dischargeType: 'regulaer',
-      safety: ['keine Hinweise auf akute Eigengefährdung', 'keine Hinweise auf akute Fremdgefährdung'],
-      followUp: ['Selbsthilfegruppe'],
+      treatmentGoals: ['qualifizierte Entgiftungsbehandlung', 'Übergang in Substitutionsbehandlung'],
+      priorMedication: [
+        { id: '1', name: 'Sertralin', action: 'reduziert' },
+        { id: '2', name: 'Quetiapin', action: 'erhöht' },
+      ],
+      transferEnabled: true,
+      transferFrom: 'closed',
+      transferTo: 'open',
     });
 
-    expect(text).toContain('Behandlungsziele waren eine qualifizierte Entzugsbehandlung sowie die Beantragung einer stationären Langzeittherapie.');
-    expect(text).toContain('Bei Aufnahme betrug die Atemalkoholkonzentration 1,7 ‰.');
-    expect(text).toContain('Die medikamentöse Entzugsbehandlung erfolgte mit Clonazepam (Rivotril).');
-    expect(text).toContain('Im Stationsalltag zeigte sich der Patient freundlich und zugewandt sowie kooperativ.');
-    expect(text).toContain('An der Psychoedukation sowie der themenoffenen Psychologengruppe nahm er regelmäßig und konstruktiv teil.');
-    expect(text).toContain('Die Behandlung umfasste psychologische Einzelgespräche, Bezugspflegegespräche sowie die Beantragung einer Langzeittherapie.');
-    expect(text).toContain('Im Behandlungsverlauf konnten ein Therapieplatz beantragt sowie die körperliche Entgiftung abgeschlossen werden.');
-    expect(text).toContain('Am 02.10.2026 entließen wir den Patienten regulär aus unserer Behandlung.');
-    expect(text).toContain('Zum Entlassungszeitpunkt bestanden keine Hinweise auf eine akute Eigen- oder Fremdgefährdung.');
-    expect(text).toContain('Zur Weiterbehandlung empfahlen wir die Teilnahme an einer Selbsthilfegruppe.');
+    expect(text).toContain('Behandlungsziele waren eine qualifizierte Entgiftungsbehandlung sowie den Übergang in eine Substitutionsbehandlung.');
+    expect(text).toContain('Die bestehende Medikation mit Sertralin wurde reduziert.');
+    expect(text).toContain('Die bestehende Medikation mit Quetiapin wurde erhöht.');
+    expect(text).toContain('Im weiteren Behandlungsverlauf erfolgte die Verlegung von der geschlossen geführten auf die offen geführte Station.');
+  });
+
+  it('renders test psychology and optional opioid tolerance warning', () => {
+    const text = generateLetter({
+      ...emptyForm,
+      therapeuticMeasures: ['testpsychologische Diagnostik'],
+      opioidToleranceWarning: true,
+    });
+
+    expect(text).toContain('Die Behandlung umfasste eine testpsychologische Diagnostik.');
+    expect(text).toContain('Toleranzverlust');
+    expect(text).toContain('erhöhte Überdosierungsrisiko');
   });
 });
