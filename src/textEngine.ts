@@ -2,12 +2,18 @@ import type { FormState } from './types';
 
 const clean = (value: string) => value.trim().replace(/\s+/g, ' ');
 
-export function joinGerman(items: string[]): string {
+export function joinGerman(items: string[], conjunction = 'und'): string {
   const values = items.map(clean).filter(Boolean);
   if (values.length === 0) return '';
   if (values.length === 1) return values[0];
-  if (values.length === 2) return `${values[0]} und ${values[1]}`;
-  return `${values.slice(0, -1).join(', ')} und ${values.at(-1)}`;
+  if (values.length === 2) return `${values[0]} ${conjunction} ${values[1]}`;
+  return `${values.slice(0, -1).join(', ')} ${conjunction} ${values.at(-1)}`;
+}
+
+function sentence(value: string): string {
+  const text = clean(value);
+  if (!text) return '';
+  return /[.!?]$/.test(text) ? text : `${text}.`;
 }
 
 function formatDate(value: string): string {
@@ -16,10 +22,26 @@ function formatDate(value: string): string {
   return year && month && day ? `${day}.${month}.${year}` : value;
 }
 
+function formatGermanDecimal(value: string): string {
+  return clean(value).replace('.', ',');
+}
+
 function pronouns(gender: FormState['gender']) {
   return gender === 'female'
-    ? { salutation: 'Frau', patient: 'die Patientin', patientNom: 'Die Patientin', pronoun: 'sie', possessive: 'ihre' }
-    : { salutation: 'Herr', patient: 'der Patient', patientNom: 'Der Patient', pronoun: 'er', possessive: 'seine' };
+    ? {
+        salutation: 'Frau',
+        patientNom: 'die Patientin',
+        patientNomCap: 'Die Patientin',
+        patientAcc: 'die Patientin',
+        pronoun: 'sie',
+      }
+    : {
+        salutation: 'Herr',
+        patientNom: 'der Patient',
+        patientNomCap: 'Der Patient',
+        patientAcc: 'den Patienten',
+        pronoun: 'er',
+      };
 }
 
 function detoxSubstanceAfterVon(value: string): string {
@@ -27,40 +49,87 @@ function detoxSubstanceAfterVon(value: string): string {
     'synthetische Cannabinoide (Spice)': 'synthetischen Cannabinoiden (Spice)',
     'andere Opioide': 'anderen Opioiden',
     'Benzodiazepine': 'Benzodiazepinen',
-    'Z-Substanzen': 'Z-Substanzen',
     'Halluzinogene': 'Halluzinogenen',
   };
   return forms[value] ?? value;
 }
 
-function goalPhrase(state: FormState): string {
-  const goals = [...state.treatmentGoals];
-  const rendered: string[] = [];
-  for (const goal of goals) {
+function renderTreatmentGoals(state: FormState): string[] {
+  return state.treatmentGoals.map((goal) => {
     if (goal === 'Entgiftungsbehandlung') {
       const substances = [...state.detoxSubstances.map(detoxSubstanceAfterVon), clean(state.detoxOther)].filter(Boolean);
-      rendered.push(substances.length ? `einer Entgiftungsbehandlung von ${joinGerman(substances)}` : 'einer Entgiftungsbehandlung');
-    } else if (goal === 'qualifizierte Entzugsbehandlung') {
-      rendered.push('einer qualifizierten Entzugsbehandlung');
-    } else if (goal === 'Substitution/Einstellung') {
-      rendered.push('einer Substitution bzw. medikamentösen Einstellung');
-    } else if (goal === 'Beantragung einer stationären Langzeittherapie') {
-      rendered.push('der Beantragung einer stationären Langzeittherapie');
-    } else if (goal === 'nahtloser Übergang in eine stationäre Langzeittherapie') {
-      rendered.push('der Vorbereitung eines nahtlosen Übergangs in eine stationäre Langzeittherapie');
-    } else if (goal === 'Vermittlung in betreutes Wohnen') {
-      rendered.push('der Vermittlung in betreutes Wohnen');
-    } else if (goal === 'ambulante Weiterbehandlung') {
-      rendered.push('der Organisation einer ambulanten Weiterbehandlung');
-    } else if (goal === 'psychiatrische Stabilisierung') {
-      rendered.push('einer psychiatrischen Stabilisierung');
-    } else if (goal === 'medikamentöse Einstellung') {
-      rendered.push('einer medikamentösen Einstellung');
-    } else if (goal === 'Krisenintervention') {
-      rendered.push('einer Krisenintervention');
+      return substances.length
+        ? `eine Entgiftungsbehandlung von ${joinGerman(substances)}`
+        : 'eine Entgiftungsbehandlung';
     }
-  }
-  return joinGerman(rendered);
+
+    const forms: Record<string, string> = {
+      'qualifizierte Entzugsbehandlung': 'eine qualifizierte Entzugsbehandlung',
+      'Substitution/Einstellung': 'eine Substitution bzw. medikamentöse Einstellung',
+      'Beantragung einer stationären Langzeittherapie': 'die Beantragung einer stationären Langzeittherapie',
+      'nahtloser Übergang in eine stationäre Langzeittherapie': 'die Vorbereitung eines nahtlosen Übergangs in eine stationäre Langzeittherapie',
+      'Vermittlung in betreutes Wohnen': 'die Vermittlung in betreutes Wohnen',
+      'ambulante Weiterbehandlung': 'die Organisation einer ambulanten Weiterbehandlung',
+      'psychiatrische Stabilisierung': 'eine psychiatrische Stabilisierung',
+      'medikamentöse Einstellung': 'eine medikamentöse Einstellung',
+      'Krisenintervention': 'eine Krisenintervention',
+    };
+
+    return forms[goal] ?? goal;
+  });
+}
+
+function renderGroup(group: string): string {
+  const forms: Record<string, string> = {
+    Psychoedukation: 'der Psychoedukation',
+    'themenoffene Psychologengruppe': 'der themenoffenen Psychologengruppe',
+    Motivationsgruppe: 'der Motivationsgruppe',
+    Skillsgruppe: 'der Skillsgruppe',
+    'medizinische Informationsgruppe': 'der medizinischen Informationsgruppe',
+  };
+  return forms[group] ?? group;
+}
+
+function renderMeasure(measure: string): string {
+  const forms: Record<string, string> = {
+    'Vermittlung in Selbsthilfe': 'die Vermittlung in Selbsthilfeangebote',
+    'Beantragung einer Langzeittherapie': 'die Beantragung einer Langzeittherapie',
+    'Organisation einer Wohnperspektive': 'die Organisation einer Wohnperspektive',
+  };
+  return forms[measure] ?? measure;
+}
+
+function renderOutcome(outcome: string): string {
+  const forms: Record<string, string> = {
+    'körperliche Entgiftung abgeschlossen': 'die körperliche Entgiftung abgeschlossen',
+    'Entzugssymptomatik rückläufig': 'eine Besserung der Entzugssymptomatik erreicht',
+    'psychische Stabilisierung erreicht': 'eine psychische Stabilisierung erreicht',
+    'Schlaf verbessert': 'der Schlaf verbessert',
+    'Craving reduziert': 'das Craving reduziert',
+    'Krankheitseinsicht gefördert': 'die Krankheitseinsicht gefördert',
+    'Abstinenzmotivation gestärkt': 'die Abstinenzmotivation gestärkt',
+    'weiterführende Behandlung organisiert': 'eine weiterführende Behandlung organisiert',
+    'Therapieplatz beantragt': 'ein Therapieplatz beantragt',
+    'Therapieplatz vermittelt': 'ein Therapieplatz vermittelt',
+    'Wohnperspektive geklärt': 'die Wohnperspektive geklärt',
+  };
+  return forms[outcome] ?? outcome;
+}
+
+function renderFollowUp(option: string): string {
+  const forms: Record<string, string> = {
+    'hausärztliche Weiterbehandlung': 'eine hausärztliche Weiterbehandlung',
+    'ambulante psychiatrische Weiterbehandlung': 'eine ambulante psychiatrische Weiterbehandlung',
+    Suchtambulanz: 'die Anbindung an eine Suchtambulanz',
+    Substitutionsambulanz: 'die Anbindung an eine Substitutionsambulanz',
+    Psychotherapie: 'eine psychotherapeutische Weiterbehandlung',
+    'stationäre Langzeittherapie/Rehabilitation': 'eine stationäre Langzeittherapie bzw. Rehabilitation',
+    Adaption: 'eine Adaption',
+    'betreutes Wohnen': 'die Weiterbetreuung in einer betreuten Wohnform',
+    Selbsthilfegruppe: 'die Teilnahme an einer Selbsthilfegruppe',
+    Institutsambulanz: 'die Anbindung an eine Institutsambulanz',
+  };
+  return forms[option] ?? option;
 }
 
 export function generateLetter(state: FormState): string {
@@ -69,32 +138,40 @@ export function generateLetter(state: FormState): string {
   const sentences: string[] = [];
 
   if (state.admissionMode && state.wardType) {
-    sentences.push(`${p.salutation} ${name} wurde ${state.admissionMode === 'voluntary' ? 'freiwillig' : 'unfreiwillig'} auf unsere ${state.wardType === 'open' ? 'offen' : 'geschlossen'} geführte Station aufgenommen.`);
+    sentences.push(
+      `${p.salutation} ${name} wurde ${state.admissionMode === 'voluntary' ? 'freiwillig' : 'unfreiwillig'} auf unserer ${state.wardType === 'open' ? 'offen' : 'geschlossen'} geführten Station aufgenommen.`,
+    );
   }
 
   if (state.intakeMode === 'reason') {
     const reason = clean(state.admissionReason);
-    if (reason) sentences.push(`Grund der Aufnahme war ${reason}.`);
+    if (reason) sentences.push(`Grund der Aufnahme war ${reason.replace(/[.!?]$/, '')}.`);
   } else {
-    const goal = goalPhrase(state);
-    if (goal) sentences.push(`Ziel der Behandlung war ${goal}.`);
+    const goals = renderTreatmentGoals(state);
+    if (goals.length === 1) {
+      sentences.push(`Ziel der Behandlung war ${goals[0]}.`);
+    } else if (goals.length > 1) {
+      sentences.push(`Behandlungsziele waren ${joinGerman(goals, 'sowie')}.`);
+    }
   }
 
   if (state.urineStatus === 'unauffaellig') {
     sentences.push('Die Urinkontrolle bei Aufnahme war unauffällig.');
   } else {
     const positives = [...state.urinePositive, clean(state.urineOther)].filter(Boolean);
-    if (positives.length) sentences.push(`In der Urinkontrolle bei Aufnahme zeigten sich positive Nachweise auf ${joinGerman(positives)}.`);
+    if (positives.length) {
+      sentences.push(`In der Urinkontrolle bei Aufnahme ergaben sich positive Befunde für ${joinGerman(positives)}.`);
+    }
   }
 
   if (state.aakEnabled && clean(state.aak)) {
-    sentences.push(`Die Atemalkoholkonzentration bei Aufnahme betrug ${clean(state.aak)} ‰.`);
+    sentences.push(`Bei Aufnahme betrug die Atemalkoholkonzentration ${formatGermanDecimal(state.aak)} ‰.`);
   }
 
   const symptoms = [...state.withdrawalSymptoms, clean(state.withdrawalOther)].filter(Boolean);
   if (symptoms.length) {
     const severity = state.withdrawalSeverity ? `${state.withdrawalSeverity}e ` : '';
-    sentences.push(`Im Verlauf zeigte sich eine ${severity}Entzugssymptomatik mit ${joinGerman(symptoms)}.`);
+    sentences.push(`Im Behandlungsverlauf zeigte sich eine ${severity}Entzugssymptomatik mit ${joinGerman(symptoms)}.`);
   }
 
   const detoxMeds = [...state.detoxMedication, clean(state.detoxMedicationOther)].filter(Boolean);
@@ -102,39 +179,66 @@ export function generateLetter(state: FormState): string {
     if (detoxMeds.includes('keine spezifische medikamentöse Entzugsbehandlung')) {
       sentences.push('Eine spezifische medikamentöse Entzugsbehandlung war nicht erforderlich.');
     } else {
-      sentences.push(`Wir führten eine medikamentöse Entzugsbehandlung mit ${joinGerman(detoxMeds)} durch.`);
+      sentences.push(`Die medikamentöse Entzugsbehandlung erfolgte mit ${joinGerman(detoxMeds)}.`);
     }
   }
 
   state.additionalMedication.forEach((med) => {
-    const nameValue = clean(med.name);
+    const medication = clean(med.name);
     const reason = clean(med.reason);
-    if (nameValue && reason) sentences.push(`Aufgrund von ${reason} erfolgte eine Behandlung mit ${nameValue}.`);
-    else if (nameValue) sentences.push(`Zusätzlich erfolgte eine Behandlung mit ${nameValue}.`);
+    if (medication && reason) {
+      sentences.push(`Zur Behandlung von ${reason} erhielt ${p.patientNom} ${medication}.`);
+    } else if (medication) {
+      sentences.push(`Zusätzlich erhielt ${p.patientNom} ${medication}.`);
+    }
   });
 
   state.priorMedication.forEach((med) => {
-    const nameValue = clean(med.name);
-    if (nameValue) sentences.push(`Die Vormedikation mit ${nameValue} wurde ${med.action}.`);
+    const medication = clean(med.name);
+    if (!medication) return;
+    const action =
+      med.action === 'fortgeführt'
+        ? 'unverändert fortgeführt'
+        : med.action === 'abgesetzt'
+          ? 'abgesetzt'
+          : 'angepasst';
+    sentences.push(`Die bestehende Medikation mit ${medication} wurde ${action}.`);
   });
 
   const behavior = [...state.wardBehavior, clean(state.wardBehaviorOther)].filter(Boolean);
-  if (behavior.length) sentences.push(`Im Stationsalltag zeigte sich ${p.patient} ${joinGerman(behavior)}.`);
-
-  if (state.groups.length) {
-    const participation = clean(state.groupParticipation);
-    const tail = participation ? ` ${participation}` : '';
-    sentences.push(`Am gruppentherapeutischen Angebot mit ${joinGerman(state.groups)} nahm ${p.pronoun}${tail} teil.`);
+  if (behavior.length) {
+    sentences.push(`Im Stationsalltag zeigte sich ${p.patientNom} ${joinGerman(behavior, 'sowie')}.`);
   }
 
-  const measures = [...state.therapeuticMeasures, clean(state.therapeuticMeasuresOther)].filter(Boolean);
-  if (measures.length) sentences.push(`Die Behandlung umfasste ${joinGerman(measures)}.`);
+  if (state.groups.length) {
+    const renderedGroups = state.groups.map(renderGroup);
+    const participation = clean(state.groupParticipation);
+    const participationText = participation ? ` ${participation}` : '';
+    sentences.push(`An ${joinGerman(renderedGroups, 'sowie')} nahm ${p.pronoun}${participationText} teil.`);
+  }
 
-  const results = [...state.outcomes, clean(state.outcomesOther)].filter(Boolean);
-  if (results.length) sentences.push(`Während der Behandlung konnten wir folgende Ergebnisse erreichen: ${joinGerman(results)}.`);
+  const measures = [...state.therapeuticMeasures.map(renderMeasure), clean(state.therapeuticMeasuresOther)].filter(Boolean);
+  if (measures.length) {
+    sentences.push(`Die Behandlung umfasste ${joinGerman(measures, 'sowie')}.`);
+  }
+
+  const negativeOutcome = state.outcomes.includes('keine ausreichende Stabilisierung aufgrund vorzeitiger Beendigung');
+  const positiveOutcomes = state.outcomes
+    .filter((outcome) => outcome !== 'keine ausreichende Stabilisierung aufgrund vorzeitiger Beendigung')
+    .map(renderOutcome);
+
+  if (positiveOutcomes.length) {
+    sentences.push(`Im Behandlungsverlauf konnten ${joinGerman(positiveOutcomes, 'sowie')} werden.`);
+  }
+  if (negativeOutcome) {
+    sentences.push('Aufgrund der vorzeitigen Beendigung konnte keine ausreichende Stabilisierung erreicht werden.');
+  }
+  if (clean(state.outcomesOther)) {
+    sentences.push(sentence(state.outcomesOther));
+  }
 
   const date = formatDate(state.dischargeDate);
-  const dischargeLead = date ? `Am ${date} entließen wir ${p.patient}` : `Wir entließen ${p.patient}`;
+  const dischargeLead = date ? `Am ${date} entließen wir ${p.patientAcc}` : `Wir entließen ${p.patientAcc}`;
   const dischargeMap: Record<Exclude<FormState['dischargeType'], ''>, string> = {
     regulaer: 'regulär aus unserer Behandlung',
     eigenwunsch: 'auf eigenen Wunsch aus unserer Behandlung',
@@ -144,19 +248,33 @@ export function generateLetter(state: FormState): string {
     therapieabbruch: 'bei Therapieabbruch aus unserer Behandlung',
     sonstiges: clean(state.dischargeOther) || 'aus unserer Behandlung',
   };
-  if (state.dischargeType) sentences.push(`${dischargeLead} ${dischargeMap[state.dischargeType]}.`);
+  if (state.dischargeType) {
+    sentences.push(`${dischargeLead} ${dischargeMap[state.dischargeType]}.`);
+  }
 
-  const safetySentences: string[] = [];
-  if (state.safety.includes('keine Hinweise auf akute Eigengefährdung')) safetySentences.push('Es bestanden keine Hinweise auf eine akute Eigengefährdung.');
-  if (state.safety.includes('keine Hinweise auf akute Fremdgefährdung')) safetySentences.push('Es bestanden keine Hinweise auf eine akute Fremdgefährdung.');
-  if (state.safety.includes('glaubhafte Distanzierung von akuter Suizidalität')) safetySentences.push(`${p.patientNom} distanzierte sich glaubhaft von akuter Suizidalität.`);
-  if (clean(state.safetyOther)) safetySentences.push(clean(state.safetyOther).replace(/[.!?]?$/, '.'));
-  sentences.push(...safetySentences);
+  const noSelfRisk = state.safety.includes('keine Hinweise auf akute Eigengefährdung');
+  const noOtherRisk = state.safety.includes('keine Hinweise auf akute Fremdgefährdung');
+  if (noSelfRisk && noOtherRisk) {
+    sentences.push('Zum Entlassungszeitpunkt bestanden keine Hinweise auf eine akute Eigen- oder Fremdgefährdung.');
+  } else if (noSelfRisk) {
+    sentences.push('Zum Entlassungszeitpunkt bestanden keine Hinweise auf eine akute Eigengefährdung.');
+  } else if (noOtherRisk) {
+    sentences.push('Zum Entlassungszeitpunkt bestanden keine Hinweise auf eine akute Fremdgefährdung.');
+  }
 
-  const followUp = [...state.followUp, clean(state.followUpOther)].filter(Boolean);
+  if (state.safety.includes('glaubhafte Distanzierung von akuter Suizidalität')) {
+    sentences.push(`${p.patientNomCap} distanzierte sich glaubhaft von akuter Suizidalität.`);
+  }
+  if (clean(state.safetyOther)) {
+    sentences.push(sentence(state.safetyOther));
+  }
+
+  const followUp = [...state.followUp.map(renderFollowUp), clean(state.followUpOther)].filter(Boolean);
   if (followUp.length) {
-    const datePart = state.followUpDate ? `; ein Termin ist für den ${formatDate(state.followUpDate)} vorgesehen` : '';
-    sentences.push(`Wir empfahlen die weitere Anbindung an ${joinGerman(followUp)}${datePart}.`);
+    sentences.push(`Zur Weiterbehandlung empfahlen wir ${joinGerman(followUp, 'sowie')}.`);
+  }
+  if (state.followUpDate) {
+    sentences.push(`Ein entsprechender Termin ist für den ${formatDate(state.followUpDate)} vorgesehen.`);
   }
 
   return sentences.join(' ');
