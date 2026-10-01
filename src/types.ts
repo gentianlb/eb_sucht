@@ -44,7 +44,7 @@ export interface FormState {
   aakEnabled: boolean;
   aak: string;
   capillaryBloodEnabled: boolean;
-  capillaryBloodSubstance: string;
+  capillaryBloodSubstances: string[];
 
   withdrawalSeverity: Severity;
   withdrawalSymptoms: string[];
