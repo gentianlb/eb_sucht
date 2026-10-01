@@ -66,7 +66,7 @@ function renderTreatmentGoals(state: FormState): string[] {
     const forms: Record<string, string> = {
       'qualifizierte Entgiftungsbehandlung': 'eine qualifizierte Entgiftungsbehandlung',
       Einstellung: 'eine Einstellung',
-      'Übergang in Substitutionsbehandlung': 'den Übergang in eine Substitutionsbehandlung',
+      'Übergang in Substitutionsbehandlung': 'der Übergang in eine Substitutionsbehandlung',
       'Beantragung einer stationären Langzeittherapie': 'die Beantragung einer stationären Langzeittherapie',
       'nahtloser Übergang in eine stationäre Langzeittherapie': 'die Vorbereitung eines nahtlosen Übergangs in eine stationäre Langzeittherapie',
       'Vermittlung in betreutes Wohnen': 'die Vermittlung in betreutes Wohnen',
@@ -175,7 +175,7 @@ export function generateLetter(state: FormState): string {
   }
 
   if (state.capillaryBloodEnabled && clean(state.capillaryBloodSubstance)) {
-    sentences.push(`Im Kapillarblut erfolgte zusätzlich der Nachweis von ${clean(state.capillaryBloodSubstance)}.`);
+    sentences.push(`Im Kapillarblut zeigte sich zusätzlich ein positiver Befund für ${clean(state.capillaryBloodSubstance)}.`);
   }
 
   const symptoms = [...state.withdrawalSymptoms, clean(state.withdrawalOther)].filter(Boolean);
