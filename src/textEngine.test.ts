@@ -32,11 +32,11 @@ describe('generateLetter', () => {
       urineStatus: 'positiv',
       urinePositive: ['Opiate', 'EtG', 'Pregabalin'],
       capillaryBloodEnabled: true,
-      capillaryBloodSubstance: 'synthetische Cannabinoide',
+      capillaryBloodSubstances: ['synthetische Cannabinoide', 'Oxycodon'],
     });
 
     expect(text).toContain('positive Befunde für Opiate, EtG und Pregabalin');
-    expect(text).toContain('Im Kapillarblut zeigte sich zusätzlich ein positiver Befund für synthetische Cannabinoide.');
+    expect(text).toContain('Im Kapillarblut zeigten sich zusätzlich positive Befunde für synthetische Cannabinoide, Oxycodon.');
   });
 
   it('renders new treatment goals, transfer and medication changes', () => {
@@ -57,6 +57,15 @@ describe('generateLetter', () => {
     expect(text).toContain('Die bestehende Medikation mit Sertralin wurde reduziert.');
     expect(text).toContain('Die bestehende Medikation mit Quetiapin wurde erhöht.');
     expect(text).toContain('Im weiteren Behandlungsverlauf erfolgte die Verlegung von der geschlossen geführten auf die offen geführte Station.');
+  });
+
+  it('renders recommendation wording with "Wir empfehlen"', () => {
+    const text = generateLetter({
+      ...emptyForm,
+      followUp: ['Selbsthilfegruppe', 'Suchtambulanz'],
+    });
+
+    expect(text).toContain('Wir empfehlen die Teilnahme an einer Selbsthilfegruppe sowie die Anbindung an eine Suchtambulanz.');
   });
 
   it('renders test psychology and optional opioid tolerance warning', () => {
