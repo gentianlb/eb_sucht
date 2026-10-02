@@ -174,8 +174,11 @@ export function generateLetter(state: FormState): string {
     sentences.push(`Bei Aufnahme betrug die Atemalkoholkonzentration ${formatGermanDecimal(state.aak)} ‰.`);
   }
 
-  if (state.capillaryBloodEnabled && clean(state.capillaryBloodSubstance)) {
-    sentences.push(`Im Kapillarblut zeigte sich zusätzlich ein positiver Befund für ${clean(state.capillaryBloodSubstance)}.`);
+  if (state.capillaryBloodEnabled) {
+    const capillaryFindings = state.capillaryBloodSubstances.map(clean).filter(Boolean);
+    if (capillaryFindings.length) {
+      sentences.push(`Im Kapillarblut zeigten sich zusätzlich positive Befunde für ${capillaryFindings.join(', ')}.`);
+    }
   }
 
   const symptoms = [...state.withdrawalSymptoms, clean(state.withdrawalOther)].filter(Boolean);
@@ -293,7 +296,7 @@ export function generateLetter(state: FormState): string {
 
   const followUp = [...state.followUp.map(renderFollowUp), clean(state.followUpOther)].filter(Boolean);
   if (followUp.length) {
-    sentences.push(`Zur Weiterbehandlung empfahlen wir ${joinGerman(followUp, 'sowie')}.`);
+    sentences.push(`Wir empfehlen ${joinGerman(followUp, 'sowie')}.`);
   }
   if (state.followUpDate) {
     sentences.push(`Ein entsprechender Termin ist für den ${formatDate(state.followUpDate)} vorgesehen.`);
