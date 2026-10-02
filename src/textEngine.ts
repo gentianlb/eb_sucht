@@ -65,9 +65,10 @@ function renderTreatmentGoals(state: FormState): string[] {
 
     const forms: Record<string, string> = {
       'qualifizierte Entgiftungsbehandlung': 'eine qualifizierte Entgiftungsbehandlung',
-      Einstellung: 'eine Einstellung',
       'Übergang in Substitutionsbehandlung': 'der Übergang in eine Substitutionsbehandlung',
       'Beantragung einer stationären Langzeittherapie': 'die Beantragung einer stationären Langzeittherapie',
+      'Beantragung einer ambulanten Entwöhnungstherapie': 'die Beantragung einer ambulanten Entwöhnungstherapie',
+      'Beantragung einer tagesklinischen Entwöhnungstherapie': 'die Beantragung einer tagesklinischen Entwöhnungstherapie',
       'nahtloser Übergang in eine stationäre Langzeittherapie': 'die Vorbereitung eines nahtlosen Übergangs in eine stationäre Langzeittherapie',
       'Vermittlung in betreutes Wohnen': 'die Vermittlung in betreutes Wohnen',
       'ambulante Weiterbehandlung': 'die Organisation einer ambulanten Weiterbehandlung',
@@ -122,11 +123,10 @@ function renderFollowUp(option: string): string {
   const forms: Record<string, string> = {
     'hausärztliche Weiterbehandlung': 'eine hausärztliche Weiterbehandlung',
     'ambulante psychiatrische Weiterbehandlung': 'eine ambulante psychiatrische Weiterbehandlung',
-    Suchtambulanz: 'die Anbindung an eine Suchtambulanz',
-    Substitutionsambulanz: 'die Anbindung an eine Substitutionsambulanz',
+    'örtliche Drogenberatungsstelle': 'die Anbindung an die örtliche Drogenberatungsstelle',
+    Substitutionspraxis: 'die Anbindung an eine Substitutionspraxis',
     Psychotherapie: 'eine psychotherapeutische Weiterbehandlung',
     'stationäre Langzeittherapie/Rehabilitation': 'eine stationäre Langzeittherapie bzw. Rehabilitation',
-    Adaption: 'eine Adaption',
     'betreutes Wohnen': 'die Weiterbetreuung in einer betreuten Wohnform',
     Selbsthilfegruppe: 'die Teilnahme an einer Selbsthilfegruppe',
     Institutsambulanz: 'die Anbindung an eine Institutsambulanz',
