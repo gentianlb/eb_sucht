@@ -175,7 +175,7 @@ export const emptyForm: FormState = {
   aakEnabled: false,
   aak: '',
   capillaryBloodEnabled: false,
-  capillaryBloodSubstance: '',
+  capillaryBloodSubstances: [''],
 
   withdrawalSeverity: '',
   withdrawalSymptoms: [],
