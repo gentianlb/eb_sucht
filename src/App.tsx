@@ -129,6 +129,37 @@ function App() {
   const text = manualMode ? manualText : generated;
   const safetyComplete = form.safety.length > 0 || form.safetyOther.trim().length > 0;
 
+  const completedSections = useMemo(() => {
+    const sections = [
+      Boolean(form.name.trim() && form.admissionMode && form.wardType),
+      form.intakeMode === 'reason' ? Boolean(form.admissionReason.trim()) : form.treatmentGoals.length > 0,
+      Boolean(
+        form.urineStatus ||
+        (form.aakEnabled && form.aak.trim()) ||
+        (form.capillaryBloodEnabled && form.capillaryBloodSubstances.some((value) => value.trim())),
+      ),
+      Boolean(form.withdrawalSeverity || form.withdrawalSymptoms.length || form.withdrawalOther.trim()),
+      Boolean(
+        form.detoxMedication.length ||
+        form.detoxMedicationOther.trim() ||
+        form.additionalMedication.some((med) => med.name.trim()) ||
+        form.priorMedication.some((med) => med.name.trim()) ||
+        (form.transferEnabled && form.transferFrom && form.transferTo),
+      ),
+      Boolean(form.wardBehavior.length || form.wardBehaviorOther.trim()),
+      Boolean(form.groups.length || form.groupParticipation),
+      Boolean(form.therapeuticMeasures.length || form.therapeuticMeasuresOther.trim()),
+      Boolean(form.outcomes.length || form.outcomesOther.trim()),
+      Boolean(form.dischargeDate || form.dischargeType),
+      Boolean(form.safety.length || form.safetyOther.trim() || form.opioidToleranceWarning),
+      Boolean(form.followUp.length || form.followUpOther.trim() || form.followUpDate),
+    ];
+
+    return sections.filter(Boolean).length;
+  }, [form]);
+
+  const progressPercent = Math.round((completedSections / 12) * 100);
+
   const patch = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -192,6 +223,18 @@ function App() {
   const removePrior = (id: string) =>
     patch('priorMedication', form.priorMedication.filter((m) => m.id !== id));
 
+  const addCapillarySubstance = () =>
+    patch('capillaryBloodSubstances', [...form.capillaryBloodSubstances, '']);
+  const updateCapillarySubstance = (index: number, value: string) =>
+    patch(
+      'capillaryBloodSubstances',
+      form.capillaryBloodSubstances.map((item, itemIndex) => (itemIndex === index ? value : item)),
+    );
+  const removeCapillarySubstance = (index: number) => {
+    const next = form.capillaryBloodSubstances.filter((_, itemIndex) => itemIndex !== index);
+    patch('capillaryBloodSubstances', next.length ? next : ['']);
+  };
+
   const sectionProps = (id: string, defaultOpen = false) => ({
     id,
     fastMode,
@@ -225,6 +268,16 @@ function App() {
               <span>Fast-Mode</span>
             </label>
             <button className="ghost danger" type="button" onClick={reset}>Zurücksetzen</button>
+          </div>
+
+          <div className="progress-panel panel" aria-label="Ausfüllfortschritt">
+            <div className="progress-copy">
+              <span>Fortschritt</span>
+              <strong>{completedSections}/12 Abschnitte ausgefüllt</strong>
+            </div>
+            <div className="progress-track" aria-hidden="true">
+              <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+            </div>
           </div>
 
           <Section title="1 · Patient & Aufnahme" {...sectionProps('patient', true)}>
@@ -302,10 +355,31 @@ function App() {
               <span>Kapillarblut ergänzen</span>
             </label>
             {form.capillaryBloodEnabled && (
-              <label>
-                <span>Nachgewiesene Substanz</span>
-                <input value={form.capillaryBloodSubstance} onChange={(e) => patch('capillaryBloodSubstance', e.target.value)} placeholder="Droge einfügen" />
-              </label>
+              <div className="subpanel">
+                <div className="repeater-head">
+                  <span className="field-title">Nachgewiesene Substanzen</span>
+                  <button type="button" className="small-button" onClick={addCapillarySubstance}>+ weitere Substanz</button>
+                </div>
+                {form.capillaryBloodSubstances.map((substance, index) => (
+                  <div className="capillary-repeater" key={index}>
+                    <input
+                      value={substance}
+                      onChange={(e) => updateCapillarySubstance(index, e.target.value)}
+                      placeholder="Droge einfügen"
+                    />
+                    {form.capillaryBloodSubstances.length > 1 && (
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label="Substanz entfernen"
+                        onClick={() => removeCapillarySubstance(index)}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </Section>
 
