@@ -62,10 +62,24 @@ describe('generateLetter', () => {
   it('renders recommendation wording with "Wir empfehlen"', () => {
     const text = generateLetter({
       ...emptyForm,
-      followUp: ['Selbsthilfegruppe', 'Suchtambulanz'],
+      followUp: ['Selbsthilfegruppe', 'örtliche Drogenberatungsstelle'],
     });
 
-    expect(text).toContain('Wir empfehlen die Teilnahme an einer Selbsthilfegruppe sowie die Anbindung an eine Suchtambulanz.');
+    expect(text).toContain('Wir empfehlen die Teilnahme an einer Selbsthilfegruppe sowie die Anbindung an die örtliche Drogenberatungsstelle.');
+  });
+
+  it('renders the new rehabilitation application goals', () => {
+    const text = generateLetter({
+      ...emptyForm,
+      treatmentGoals: [
+        'Beantragung einer ambulanten Entwöhnungstherapie',
+        'Beantragung einer tagesklinischen Entwöhnungstherapie',
+      ],
+    });
+
+    expect(text).toContain(
+      'Behandlungsziele waren die Beantragung einer ambulanten Entwöhnungstherapie sowie die Beantragung einer tagesklinischen Entwöhnungstherapie.',
+    );
   });
 
   it('renders test psychology and optional opioid tolerance warning', () => {
