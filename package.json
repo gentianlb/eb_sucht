@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.app.json && vite build",
+    "build:offline": "tsc --noEmit -p tsconfig.app.json && vite build --config vite.offline.config.ts && node scripts/make-offline.mjs",
     "preview": "vite preview",
     "test": "vitest run"
   },
