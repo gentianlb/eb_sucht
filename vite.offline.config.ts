@@ -7,8 +7,8 @@ export default defineConfig({
   base: './',
   resolve: {
     alias: {
-      '@dictation-panel': resolve(__dirname, 'src/DictationPanel.disabled.tsx'),
-      '@speech': resolve(__dirname, 'src/speech-disabled.ts'),
+      '@dictation-panel': resolve(import.meta.dirname, 'src/DictationPanel.disabled.tsx'),
+      '@speech': resolve(import.meta.dirname, 'src/speech-disabled.ts'),
     },
   },
   build: {
