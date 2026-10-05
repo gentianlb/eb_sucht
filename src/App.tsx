@@ -17,13 +17,12 @@ import {
 } from './data';
 import { DICTATION_COMMANDS, mergeDictation } from './dictation';
 import {
-  getSpeechMode,
   isSpeechSupported,
   startDictationRecording,
   transcribeRecording,
   warmupSpeechModel,
   type DictationRecorder,
-} from './speech';
+} from '@speech';
 import { generateLetter } from './textEngine';
 import type { FormState, MedicationReason, PriorMedication } from './types';
 
@@ -164,10 +163,12 @@ function App() {
   const [dictationRecording, setDictationRecording] = useState(false);
   const [dictationBusy, setDictationBusy] = useState(false);
   const [dictationStatus, setDictationStatus] = useState('');
+  const [dictationPreview, setDictationPreview] = useState('');
   const recorderRef = useRef<DictationRecorder | null>(null);
-  const speechMode = useMemo(() => getSpeechMode(), []);
-  const speechAvailable = useMemo(() => isSpeechSupported(), []);
-  const embeddedSpeech = speechMode === 'embedded-offline';
+  const speechAvailable = useMemo(
+    () => __DICTATION_ENABLED__ && isSpeechSupported(),
+    [],
+  );
 
   useEffect(() => {
     if (!manualMode) setManualText(generated);
@@ -233,6 +234,7 @@ function App() {
     setDictationRecording(false);
     setDictationBusy(false);
     setDictationStatus('');
+    setDictationPreview('');
     setForm({ ...emptyForm });
     setManualMode(false);
     setManualText('');
@@ -272,15 +274,12 @@ function App() {
 
     try {
       setNotice('');
+      setDictationPreview('');
       setDictationStatus('Mikrofon wird vorbereitet …');
       const recorder = await startDictationRecording();
       recorderRef.current = recorder;
       setDictationRecording(true);
-      setDictationStatus(
-        embeddedSpeech
-          ? 'Aufnahme läuft · lokales Sprachmodell wird vorbereitet …'
-          : 'Aufnahme läuft · Sprachmodell wird im Browser vorbereitet …',
-      );
+      setDictationStatus('Aufnahme läuft · Whisper Small wird im Browser vorbereitet …');
 
       void warmupSpeechModel(updateDictationStatus).catch((error) => {
         console.error(error);
@@ -311,10 +310,9 @@ function App() {
       const baseText = manualMode ? manualText : generated;
       const merged = mergeDictation(baseText, rawText);
 
-      setManualText(merged);
-      setManualMode(true);
-      setDictationStatus('Diktat wurde in den Text übernommen.');
-      setNotice('Diktat lokal transkribiert und eingefügt.');
+      setDictationPreview(merged);
+      setDictationStatus('Transkription fertig. Bitte Vorschau prüfen.');
+      setNotice('Diktat lokal transkribiert. Noch nicht in den Brief übernommen.');
     } catch (error) {
       console.error(error);
       setDictationStatus(
@@ -323,6 +321,21 @@ function App() {
     } finally {
       setDictationBusy(false);
     }
+  };
+
+  const acceptDictationPreview = () => {
+    if (!dictationPreview.trim()) return;
+    setManualText(dictationPreview);
+    setManualMode(true);
+    setDictationPreview('');
+    setDictationStatus('Diktat wurde übernommen.');
+    setNotice('Diktat in den Brief übernommen.');
+  };
+
+  const discardDictationPreview = () => {
+    setDictationPreview('');
+    setDictationStatus('Diktat verworfen.');
+    setNotice('Diktat-Vorschau verworfen.');
   };
 
   const setUrineStatus = (status: FormState['urineStatus']) => {
@@ -688,21 +701,17 @@ function App() {
               <div className={`dictation-panel ${dictationRecording ? 'recording' : ''}`}>
                 <div className="dictation-head">
                   <div>
-                    <strong>Lokales Diktat</strong>
-                    <span>
-                      {embeddedSpeech
-                        ? 'Whisper · Modell in dieser Datei eingebettet'
-                        : 'Whisper · Audio bleibt lokal im Browser'}
-                    </span>
+                    <strong>Diktat mit Whisper Small</strong>
+                    <span>Audio bleibt lokal im Browser</span>
                   </div>
-                  <span className="offline-pill">{embeddedSpeech ? 'offline' : 'browser'}</span>
+                  <span className="offline-pill">browser</span>
                 </div>
 
                 <button
                   type="button"
                   className={dictationRecording ? 'dictation-stop' : 'dictation-start'}
                   onClick={dictationRecording ? stopDictation : startDictation}
-                  disabled={dictationBusy}
+                  disabled={dictationBusy || Boolean(dictationPreview)}
                 >
                   {dictationBusy
                     ? 'Transkription läuft …'
@@ -715,20 +724,41 @@ function App() {
                   <p className="dictation-status" role="status">{dictationStatus}</p>
                 )}
 
+                {dictationPreview && (
+                  <div className="dictation-preview">
+                    <div className="dictation-preview-head">
+                      <strong>Diktat-Vorschau</strong>
+                      <span>Noch nicht übernommen</span>
+                    </div>
+                    <textarea
+                      className="dictation-preview-editor"
+                      value={dictationPreview}
+                      onChange={(event) => setDictationPreview(event.target.value)}
+                      aria-label="Diktat-Vorschau bearbeiten"
+                    />
+                    <div className="dictation-preview-actions">
+                      <button type="button" className="primary" onClick={acceptDictationPreview}>
+                        Übernehmen
+                      </button>
+                      <button type="button" className="ghost" onClick={discardDictationPreview}>
+                        Verwerfen
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <details className="dictation-help">
                   <summary>Diktatbefehle anzeigen</summary>
                   <p>{DICTATION_COMMANDS.join(' · ')}</p>
                   <p>
-                    Häufige Psychopharmaka und Suchtmedikamente werden nach der Transkription
-                    lokal auf ihre übliche Schreibweise korrigiert.
+                    Häufige Psychopharmaka und suchtmedizinische Medikamente werden nach der
+                    Transkription lokal auf ihre übliche Schreibweise korrigiert.
                   </p>
-                  {!embeddedSpeech && (
-                    <p>
-                      Beim ersten Diktat wird das Sprachmodell über das Internet geladen und im
-                      Browser zwischengespeichert. Die Audioaufnahme wird nicht an einen
-                      Sprachdienst übertragen.
-                    </p>
-                  )}
+                  <p>
+                    Beim ersten Diktat wird Whisper Small über das Internet geladen und im
+                    Browser zwischengespeichert. Die Audioaufnahme selbst wird nicht an einen
+                    Spracherkennungsdienst übertragen.
+                  </p>
                 </details>
               </div>
             )}
