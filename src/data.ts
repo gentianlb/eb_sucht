@@ -94,7 +94,7 @@ export const complications = [
   'Delir auf Station',
   'Krampfanfall',
   'Konsum/Rückfall auf Station',
-  'Drogenverkauf auf Station laut Mitpatient:innen',
+  'Drogenverkauf auf Station, laut Mitpatienten',
   'akute Intoxikation auf Station',
   'Sturz/Verletzung',
   'akute psychotische Symptomatik',
