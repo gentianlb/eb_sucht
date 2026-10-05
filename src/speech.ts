@@ -1,19 +1,3 @@
-type EmbeddedResource = {
-  mime: string;
-  data: string;
-};
-
-type EmbeddedSpeechRegistry = {
-  version: number;
-  modelId: string;
-  revision: string;
-  wasm: {
-    mjs: string;
-    wasm: string;
-  };
-  resources: Record<string, EmbeddedResource>;
-};
-
 export type SpeechStatusCallback = (message: string) => void;
 
 export type DictationRecorder = {
@@ -21,38 +5,7 @@ export type DictationRecorder = {
   cancel: () => void;
 };
 
-let registryCache: EmbeddedSpeechRegistry | null | undefined;
 let transcriberPromise: Promise<any> | null = null;
-const decodedResourceCache = new Map<string, Uint8Array>();
-
-function readRegistry(): EmbeddedSpeechRegistry | null {
-  if (registryCache !== undefined) return registryCache;
-
-  const node = document.getElementById('eb-speech-assets');
-  if (!node?.textContent) {
-    registryCache = null;
-    return null;
-  }
-
-  try {
-    registryCache = JSON.parse(node.textContent) as EmbeddedSpeechRegistry;
-    return registryCache;
-  } catch (error) {
-    console.error('Unable to parse embedded speech assets.', error);
-    registryCache = null;
-    return null;
-  }
-}
-
-export type SpeechMode = 'embedded-offline' | 'online-model';
-
-export function getSpeechMode(): SpeechMode {
-  // Do not JSON.parse the ~100 MB embedded registry during normal app startup.
-  // Parsing is deferred until dictation is actually used.
-  return document.getElementById('eb-speech-assets')?.textContent
-    ? 'embedded-offline'
-    : 'online-model';
-}
 
 export function isSpeechSupported(): boolean {
   return (
@@ -61,110 +14,36 @@ export function isSpeechSupported(): boolean {
   );
 }
 
-function base64ToBytes(value: string): Uint8Array {
-  const estimatedLength = Math.floor((value.length * 3) / 4);
-  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
-  const bytes = new Uint8Array(estimatedLength - padding);
-  const base64ChunkSize = 4 * 16_384;
-  let writeOffset = 0;
-
-  for (let offset = 0; offset < value.length; offset += base64ChunkSize) {
-    const chunk = value.slice(offset, Math.min(offset + base64ChunkSize, value.length));
-    const binary = atob(chunk);
-
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[writeOffset++] = binary.charCodeAt(index);
-    }
-  }
-
-  return bytes;
-}
-
-function getResource(pathname: string): { bytes: Uint8Array; mime: string } | null {
-  const registry = readRegistry();
-  if (!registry) return null;
-
-  const entry = registry.resources[pathname];
-  if (!entry) return null;
-
-  let bytes = decodedResourceCache.get(pathname);
-  if (!bytes) {
-    bytes = base64ToBytes(entry.data);
-    decodedResourceCache.set(pathname, bytes);
-  }
-
-  return { bytes, mime: entry.mime };
-}
-
-function createEmbeddedFetch() {
-  return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
-    const value =
-      typeof input === 'string'
-        ? input
-        : input instanceof URL
-          ? input.href
-          : input.url;
-
-    let pathname: string;
-    try {
-      pathname = new URL(value, 'https://offline.invalid/').pathname;
-    } catch {
-      return new Response('Not found', { status: 404 });
-    }
-
-    const resource = getResource(pathname);
-    if (!resource) {
-      return new Response('Offline resource not embedded', {
-        status: 404,
-        statusText: 'Offline resource not embedded',
-      });
-    }
-
-    const headers = new Headers({
-      'content-type': resource.mime,
-      'content-length': String(resource.bytes.byteLength),
-      'cache-control': 'no-store',
-    });
-
-    if ((init?.method ?? 'GET').toUpperCase() === 'HEAD') {
-      return new Response(null, { status: 200, headers });
-    }
-
-    return new Response(resource.bytes as unknown as BodyInit, {
-      status: 200,
-      headers,
-    });
-  };
-}
-
 function progressMessage(event: any): string | null {
   const file = String(event?.file ?? '').split('/').pop() ?? '';
 
   if (event?.status === 'initiate') {
-    if (file.endsWith('.onnx')) return 'Lokales Sprachmodell wird vorbereitet …';
+    if (file.endsWith('.onnx')) return 'Whisper Small wird vorbereitet …';
     if (file) return `Sprachressource wird geladen: ${file}`;
   }
 
   if (event?.status === 'progress' && typeof event?.progress === 'number') {
     if (file.endsWith('.onnx')) {
-      return `Sprachmodell wird geladen: ${Math.round(event.progress)} %`;
+      return `Whisper Small wird geladen: ${Math.round(event.progress)} %`;
     }
   }
 
-  if (event?.status === 'ready') return 'Sprachmodell ist bereit.';
+  if (event?.status === 'ready') return 'Whisper Small ist bereit.';
   return null;
 }
 
 async function getTranscriber(onStatus?: SpeechStatusCallback): Promise<any> {
   if (transcriberPromise) return transcriberPromise;
 
-  const registry = readRegistry();
-
   transcriberPromise = (async () => {
+    onStatus?.('Whisper Small wird beim ersten Diktat heruntergeladen …');
+
     const { env, pipeline } = await import('@huggingface/transformers');
 
     env.allowLocalModels = false;
     env.allowRemoteModels = true;
+    env.useBrowserCache = true;
+    env.useCustomCache = false;
     env.useWasmCache = true;
 
     const onnx = env.backends.onnx as any;
@@ -173,31 +52,11 @@ async function getTranscriber(onStatus?: SpeechStatusCallback): Promise<any> {
       onnx.wasm.proxy = false;
     }
 
-    const modelId = registry?.modelId ?? 'onnx-community/whisper-tiny';
-    const revision = registry?.revision ?? 'main';
-
-    if (registry) {
-      onStatus?.('Lokales Sprachmodell wird initialisiert …');
-      env.remoteHost = 'https://offline.invalid/';
-      env.remotePathTemplate = 'models/{model}/resolve/{revision}/';
-      env.useBrowserCache = false;
-      env.useCustomCache = false;
-      env.fetch = createEmbeddedFetch();
-
-      if (onnx?.wasm) {
-        onnx.wasm.wasmPaths = registry.wasm;
-      }
-    } else {
-      onStatus?.('Sprachmodell wird beim ersten Diktat heruntergeladen …');
-      env.useBrowserCache = true;
-      env.useCustomCache = false;
-    }
-
     const transcriber = await pipeline(
       'automatic-speech-recognition',
-      modelId,
+      'onnx-community/whisper-small',
       {
-        revision,
+        revision: 'main',
         device: 'wasm',
         dtype: 'q8',
         progress_callback: (event: any) => {
@@ -207,7 +66,7 @@ async function getTranscriber(onStatus?: SpeechStatusCallback): Promise<any> {
       } as any,
     );
 
-    onStatus?.('Sprachmodell ist bereit.');
+    onStatus?.('Whisper Small ist bereit.');
     return transcriber;
   })();
 
@@ -235,7 +94,7 @@ function chooseRecordingMimeType(): string | undefined {
 
 export async function startDictationRecording(): Promise<DictationRecorder> {
   if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error('Der Browser stellt keinen Mikrofonzugriff für lokale Dateien bereit.');
+    throw new Error('Der Browser stellt keinen Mikrofonzugriff bereit.');
   }
   if (typeof MediaRecorder === 'undefined') {
     throw new Error('Dieser Browser unterstützt keine Audioaufnahme über MediaRecorder.');
@@ -337,12 +196,7 @@ function resampleLinear(input: Float32Array, inputRate: number, outputRate = 16_
 }
 
 async function decodeRecording(blob: Blob): Promise<Float32Array> {
-  const AudioContextClass = window.AudioContext;
-  if (!AudioContextClass) {
-    throw new Error('Der Browser unterstützt die lokale Audioverarbeitung nicht.');
-  }
-
-  const context = new AudioContextClass();
+  const context = new AudioContext();
   try {
     const arrayBuffer = await blob.arrayBuffer();
     const decoded = await context.decodeAudioData(arrayBuffer.slice(0));
@@ -358,12 +212,13 @@ export async function transcribeRecording(
   onStatus?: SpeechStatusCallback,
 ): Promise<string> {
   onStatus?.('Audio wird lokal vorbereitet …');
+
   const [audio, transcriber] = await Promise.all([
     decodeRecording(blob),
     getTranscriber(onStatus),
   ]);
 
-  onStatus?.('Diktat wird lokal transkribiert …');
+  onStatus?.('Diktat wird lokal mit Whisper Small transkribiert …');
 
   const result = await transcriber(audio, {
     language: 'german',
