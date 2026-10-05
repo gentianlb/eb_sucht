@@ -87,6 +87,20 @@ export const detoxMedications = [
   'Diazepam',
 ];
 
+export const complications = [
+  'somatische Vorstellung im Allgemeinkrankenhaus',
+  'fremdaggressives Verhalten auf Station',
+  'Suizidalität auf Station',
+  'Delir auf Station',
+  'Krampfanfall',
+  'Konsum/Rückfall auf Station',
+  'Drogenverkauf auf Station laut Mitpatient:innen',
+  'akute Intoxikation auf Station',
+  'Sturz/Verletzung',
+  'akute psychotische Symptomatik',
+  'unerlaubtes Entfernen von der Station',
+];
+
 export const wardBehaviors = [
   'freundlich und zugewandt',
   'kooperativ',
@@ -189,6 +203,9 @@ export const emptyForm: FormState = {
   transferEnabled: false,
   transferFrom: '',
   transferTo: '',
+
+  complications: [],
+  complicationsOther: '',
 
   wardBehavior: [],
   wardBehaviorOther: '',
