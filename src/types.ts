@@ -59,6 +59,9 @@ export interface FormState {
   transferFrom: WardType;
   transferTo: WardType;
 
+  complications: string[];
+  complicationsOther: string;
+
   wardBehavior: string[];
   wardBehaviorOther: string;
   groups: string[];
