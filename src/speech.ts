@@ -44,10 +44,22 @@ function readRegistry(): EmbeddedSpeechRegistry | null {
   }
 }
 
-export function hasEmbeddedSpeechAssets(): boolean {
+export type SpeechMode = 'embedded-offline' | 'online-model';
+
+export function getSpeechMode(): SpeechMode {
   // Do not JSON.parse the ~100 MB embedded registry during normal app startup.
   // Parsing is deferred until dictation is actually used.
-  return Boolean(document.getElementById('eb-speech-assets')?.textContent);
+  return document.getElementById('eb-speech-assets')?.textContent
+    ? 'embedded-offline'
+    : 'online-model';
+}
+
+export function isSpeechSupported(): boolean {
+  return Boolean(
+    navigator.mediaDevices?.getUserMedia &&
+    typeof MediaRecorder !== 'undefined' &&
+    window.AudioContext,
+  );
 }
 
 function base64ToBytes(value: string): Uint8Array {
@@ -148,36 +160,45 @@ async function getTranscriber(onStatus?: SpeechStatusCallback): Promise<any> {
   if (transcriberPromise) return transcriberPromise;
 
   const registry = readRegistry();
-  if (!registry) {
-    throw new Error('In dieser Datei ist kein lokales Sprachmodell eingebettet.');
-  }
 
   transcriberPromise = (async () => {
-    onStatus?.('Lokales Sprachmodell wird initialisiert …');
-
     const { env, pipeline } = await import('@huggingface/transformers');
 
     env.allowLocalModels = false;
     env.allowRemoteModels = true;
-    env.remoteHost = 'https://offline.invalid/';
-    env.remotePathTemplate = 'models/{model}/resolve/{revision}/';
-    env.useBrowserCache = false;
-    env.useCustomCache = false;
     env.useWasmCache = true;
-    env.fetch = createEmbeddedFetch();
 
     const onnx = env.backends.onnx as any;
     if (onnx?.wasm) {
       onnx.wasm.numThreads = 1;
       onnx.wasm.proxy = false;
-      onnx.wasm.wasmPaths = registry.wasm;
+    }
+
+    const modelId = registry?.modelId ?? 'onnx-community/whisper-tiny';
+    const revision = registry?.revision ?? 'main';
+
+    if (registry) {
+      onStatus?.('Lokales Sprachmodell wird initialisiert …');
+      env.remoteHost = 'https://offline.invalid/';
+      env.remotePathTemplate = 'models/{model}/resolve/{revision}/';
+      env.useBrowserCache = false;
+      env.useCustomCache = false;
+      env.fetch = createEmbeddedFetch();
+
+      if (onnx?.wasm) {
+        onnx.wasm.wasmPaths = registry.wasm;
+      }
+    } else {
+      onStatus?.('Sprachmodell wird beim ersten Diktat heruntergeladen …');
+      env.useBrowserCache = true;
+      env.useCustomCache = false;
     }
 
     const transcriber = await pipeline(
       'automatic-speech-recognition',
-      registry.modelId,
+      modelId,
       {
-        revision: registry.revision,
+        revision,
         device: 'wasm',
         dtype: 'q8',
         progress_callback: (event: any) => {
