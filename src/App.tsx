@@ -19,6 +19,36 @@ import type { FormState, MedicationReason, PriorMedication } from './types';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
+async function copyText(text: string): Promise<boolean> {
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to the local-file-compatible fallback below.
+    }
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  textarea.setSelectionRange(0, textarea.value.length);
+
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
 function Chip({
   active,
   children,
@@ -179,8 +209,12 @@ function App() {
 
   const copy = async () => {
     if (!safetyComplete) return;
-    await navigator.clipboard.writeText(text);
-    setNotice('Text in die Zwischenablage kopiert.');
+    const copied = await copyText(text);
+    setNotice(
+      copied
+        ? 'Text in die Zwischenablage kopiert.'
+        : 'Automatisches Kopieren wurde vom Browser blockiert. Bitte den Text manuell markieren und kopieren.',
+    );
   };
 
   const handleEditButton = () => {
