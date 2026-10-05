@@ -119,6 +119,36 @@ function renderOutcome(outcome: string): string {
   return forms[outcome] ?? outcome;
 }
 
+function renderComplication(complication: string, gender: FormState['gender']): string {
+  const p = pronouns(gender);
+  const forms: Record<string, string> = {
+    'somatische Vorstellung im Allgemeinkrankenhaus':
+      `Aufgrund somatischer Beschwerden musste ${p.patientNom} in einem Allgemeinkrankenhaus vorgestellt werden.`,
+    'fremdaggressives Verhalten auf Station':
+      'Im Verlauf kam es zu fremdaggressivem Verhalten auf Station.',
+    'Suizidalität auf Station':
+      'Im Verlauf zeigte sich auf Station eine suizidale Symptomatik.',
+    'Delir auf Station':
+      'Im Verlauf trat auf Station ein Delir auf.',
+    Krampfanfall:
+      'Im Verlauf kam es zu einem Krampfanfall.',
+    'Konsum/Rückfall auf Station':
+      'Im Verlauf kam es zu einem Konsumereignis beziehungsweise Rückfall auf Station.',
+    'Drogenverkauf auf Station laut Mitpatient:innen':
+      'Nach Angaben von Mitpatienten bestand der Verdacht auf Drogenverkauf auf Station.',
+    'akute Intoxikation auf Station':
+      'Im Verlauf kam es zu einer akuten Intoxikation auf Station.',
+    'Sturz/Verletzung':
+      'Im Verlauf kam es zu einem Sturz beziehungsweise einer Verletzung.',
+    'akute psychotische Symptomatik':
+      'Im Verlauf zeigte sich eine akute psychotische Symptomatik.',
+    'unerlaubtes Entfernen von der Station':
+      `${p.patientNomCap} entfernte sich im Verlauf unerlaubt von der Station.`,
+  };
+
+  return forms[complication] ?? sentence(complication);
+}
+
 function renderFollowUp(option: string): string {
   const forms: Record<string, string> = {
     'hausärztliche Weiterbehandlung': 'eine hausärztliche Weiterbehandlung',
@@ -222,6 +252,13 @@ export function generateLetter(state: FormState): string {
     sentences.push(
       `Im weiteren Behandlungsverlauf erfolgte die Verlegung von der ${wardLabel(state.transferFrom)}n auf die ${wardLabel(state.transferTo)} Station.`,
     );
+  }
+
+  state.complications.forEach((complication) => {
+    sentences.push(renderComplication(complication, state.gender));
+  });
+  if (clean(state.complicationsOther)) {
+    sentences.push(sentence(state.complicationsOther));
   }
 
   const behavior = [...state.wardBehavior, clean(state.wardBehaviorOther)].filter(Boolean);
