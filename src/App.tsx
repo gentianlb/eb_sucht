@@ -17,7 +17,8 @@ import {
 } from './data';
 import { DICTATION_COMMANDS, mergeDictation } from './dictation';
 import {
-  hasEmbeddedSpeechAssets,
+  getSpeechMode,
+  isSpeechSupported,
   startDictationRecording,
   transcribeRecording,
   warmupSpeechModel,
@@ -164,7 +165,9 @@ function App() {
   const [dictationBusy, setDictationBusy] = useState(false);
   const [dictationStatus, setDictationStatus] = useState('');
   const recorderRef = useRef<DictationRecorder | null>(null);
-  const speechAvailable = useMemo(() => hasEmbeddedSpeechAssets(), []);
+  const speechMode = useMemo(() => getSpeechMode(), []);
+  const speechAvailable = useMemo(() => isSpeechSupported(), []);
+  const embeddedSpeech = speechMode === 'embedded-offline';
 
   useEffect(() => {
     if (!manualMode) setManualText(generated);
@@ -273,7 +276,11 @@ function App() {
       const recorder = await startDictationRecording();
       recorderRef.current = recorder;
       setDictationRecording(true);
-      setDictationStatus('Aufnahme läuft · lokales Sprachmodell wird vorbereitet …');
+      setDictationStatus(
+        embeddedSpeech
+          ? 'Aufnahme läuft · lokales Sprachmodell wird vorbereitet …'
+          : 'Aufnahme läuft · Sprachmodell wird im Browser vorbereitet …',
+      );
 
       void warmupSpeechModel(updateDictationStatus).catch((error) => {
         console.error(error);
@@ -682,9 +689,13 @@ function App() {
                 <div className="dictation-head">
                   <div>
                     <strong>Lokales Diktat</strong>
-                    <span>Whisper · vollständig offline</span>
+                    <span>
+                      {embeddedSpeech
+                        ? 'Whisper · Modell in dieser Datei eingebettet'
+                        : 'Whisper · Audio bleibt lokal im Browser'}
+                    </span>
                   </div>
-                  <span className="offline-pill">lokal</span>
+                  <span className="offline-pill">{embeddedSpeech ? 'offline' : 'browser'}</span>
                 </div>
 
                 <button
@@ -711,6 +722,13 @@ function App() {
                     Häufige Psychopharmaka und Suchtmedikamente werden nach der Transkription
                     lokal auf ihre übliche Schreibweise korrigiert.
                   </p>
+                  {!embeddedSpeech && (
+                    <p>
+                      Beim ersten Diktat wird das Sprachmodell über das Internet geladen und im
+                      Browser zwischengespeichert. Die Audioaufnahme wird nicht an einen
+                      Sprachdienst übertragen.
+                    </p>
+                  )}
                 </details>
               </div>
             )}
