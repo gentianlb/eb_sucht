@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.app.json && vite build",
-    "build:offline": "node scripts/prepare-speech-assets.mjs && tsc --noEmit -p tsconfig.app.json && vite build --config vite.offline.config.ts && node scripts/make-offline.mjs",
+    "build:offline": "tsc --noEmit -p tsconfig.app.json && vite build --config vite.offline.config.ts && node scripts/make-offline.mjs",
     "preview": "vite preview",
     "test": "vitest run"
   },
