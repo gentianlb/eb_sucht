@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   complications,
   detoxMedications,
@@ -15,6 +15,14 @@ import {
   wardBehaviors,
   withdrawalSymptoms,
 } from './data';
+import { DICTATION_COMMANDS, mergeDictation } from './dictation';
+import {
+  hasEmbeddedSpeechAssets,
+  startDictationRecording,
+  transcribeRecording,
+  warmupSpeechModel,
+  type DictationRecorder,
+} from './speech';
 import { generateLetter } from './textEngine';
 import type { FormState, MedicationReason, PriorMedication } from './types';
 
@@ -152,10 +160,23 @@ function App() {
   const [notice, setNotice] = useState('');
   const [fastMode, setFastMode] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>('patient');
+  const [dictationRecording, setDictationRecording] = useState(false);
+  const [dictationBusy, setDictationBusy] = useState(false);
+  const [dictationStatus, setDictationStatus] = useState('');
+  const recorderRef = useRef<DictationRecorder | null>(null);
+  const speechAvailable = useMemo(() => hasEmbeddedSpeechAssets(), []);
 
   useEffect(() => {
     if (!manualMode) setManualText(generated);
   }, [generated, manualMode]);
+
+  useEffect(
+    () => () => {
+      recorderRef.current?.cancel();
+      recorderRef.current = null;
+    },
+    [],
+  );
 
   const text = manualMode ? manualText : generated;
   const safetyComplete = form.safety.length > 0 || form.safetyOther.trim().length > 0;
@@ -204,6 +225,11 @@ function App() {
   };
 
   const reset = () => {
+    recorderRef.current?.cancel();
+    recorderRef.current = null;
+    setDictationRecording(false);
+    setDictationBusy(false);
+    setDictationStatus('');
     setForm({ ...emptyForm });
     setManualMode(false);
     setManualText('');
@@ -230,6 +256,66 @@ function App() {
     }
     setManualText(generated);
     setManualMode(true);
+  };
+
+  const updateDictationStatus = (message: string) => {
+    setDictationStatus(
+      recorderRef.current && !dictationBusy ? `Aufnahme läuft · ${message}` : message,
+    );
+  };
+
+  const startDictation = async () => {
+    if (!speechAvailable || dictationBusy || recorderRef.current) return;
+
+    try {
+      setNotice('');
+      setDictationStatus('Mikrofon wird vorbereitet …');
+      const recorder = await startDictationRecording();
+      recorderRef.current = recorder;
+      setDictationRecording(true);
+      setDictationStatus('Aufnahme läuft · lokales Sprachmodell wird vorbereitet …');
+
+      void warmupSpeechModel(updateDictationStatus).catch((error) => {
+        console.error(error);
+        setDictationStatus(
+          error instanceof Error ? `Sprachmodell: ${error.message}` : 'Sprachmodell konnte nicht geladen werden.',
+        );
+      });
+    } catch (error) {
+      setDictationRecording(false);
+      setDictationStatus(
+        error instanceof Error ? error.message : 'Mikrofon konnte nicht gestartet werden.',
+      );
+    }
+  };
+
+  const stopDictation = async () => {
+    const recorder = recorderRef.current;
+    if (!recorder || dictationBusy) return;
+
+    recorderRef.current = null;
+    setDictationRecording(false);
+    setDictationBusy(true);
+
+    try {
+      setDictationStatus('Aufnahme wird beendet …');
+      const blob = await recorder.stop();
+      const rawText = await transcribeRecording(blob, setDictationStatus);
+      const baseText = manualMode ? manualText : generated;
+      const merged = mergeDictation(baseText, rawText);
+
+      setManualText(merged);
+      setManualMode(true);
+      setDictationStatus('Diktat wurde in den Text übernommen.');
+      setNotice('Diktat lokal transkribiert und eingefügt.');
+    } catch (error) {
+      console.error(error);
+      setDictationStatus(
+        error instanceof Error ? error.message : 'Das Diktat konnte nicht transkribiert werden.',
+      );
+    } finally {
+      setDictationBusy(false);
+    }
   };
 
   const setUrineStatus = (status: FormState['urineStatus']) => {
@@ -590,6 +676,45 @@ function App() {
             ) : (
               <div className="letter-text">{text || 'Auswahl treffen, um den Fließtext zu erzeugen.'}</div>
             )}
+
+            {speechAvailable && (
+              <div className={`dictation-panel ${dictationRecording ? 'recording' : ''}`}>
+                <div className="dictation-head">
+                  <div>
+                    <strong>Lokales Diktat</strong>
+                    <span>Whisper · vollständig offline</span>
+                  </div>
+                  <span className="offline-pill">lokal</span>
+                </div>
+
+                <button
+                  type="button"
+                  className={dictationRecording ? 'dictation-stop' : 'dictation-start'}
+                  onClick={dictationRecording ? stopDictation : startDictation}
+                  disabled={dictationBusy}
+                >
+                  {dictationBusy
+                    ? 'Transkription läuft …'
+                    : dictationRecording
+                      ? 'Diktat stoppen'
+                      : 'Diktat starten'}
+                </button>
+
+                {dictationStatus && (
+                  <p className="dictation-status" role="status">{dictationStatus}</p>
+                )}
+
+                <details className="dictation-help">
+                  <summary>Diktatbefehle anzeigen</summary>
+                  <p>{DICTATION_COMMANDS.join(' · ')}</p>
+                  <p>
+                    Häufige Psychopharmaka und Suchtmedikamente werden nach der Transkription
+                    lokal auf ihre übliche Schreibweise korrigiert.
+                  </p>
+                </details>
+              </div>
+            )}
+
             <div className="preview-actions">
               <button type="button" className="secondary" onClick={handleEditButton}>
                 {manualMode ? 'Aus Formular neu erzeugen' : 'Manuell bearbeiten'}
