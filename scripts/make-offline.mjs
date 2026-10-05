@@ -18,7 +18,8 @@ for (const match of html.matchAll(stylesheetPattern)) {
 }
 html = html.replace(stylesheetPattern, '');
 if (styles.length) {
-  html = html.replace('</head>', `<style>\n${styles.join('\n')}\n</style>\n</head>`);
+  const inlineStyles = `<style>\n${styles.join('\n')}\n</style>\n</head>`;
+  html = html.replace('</head>', () => inlineStyles);
 }
 
 const scriptPattern = /<script\s+type=["']module["']\s+crossorigin\s+src=["']([^"']+)["']><\/script>|<script\s+type=["']module["']\s+src=["']([^"']+)["']><\/script>/g;
@@ -29,11 +30,27 @@ for (const match of html.matchAll(scriptPattern)) {
   scripts.push(await readFile(jsPath, 'utf8'));
 }
 html = html.replace(scriptPattern, '');
+
 if (scripts.length) {
-  html = html.replace('</body>', `<script type="module">\n${scripts.join('\n')}\n</script>\n</body>`);
+  const bundledScript = scripts.join('\n');
+  new Function(bundledScript);
+  const inlineScript = `<script>\n${bundledScript}\n</script>\n</body>`;
+  html = html.replace('</body>', () => inlineScript);
 }
 
 html = html.replace(/<link\s+rel=["']modulepreload["'][^>]*>/g, '');
+
+const doctypeCount = (html.match(/<!doctype html>/gi) ?? []).length;
+if (doctypeCount !== 1) {
+  throw new Error(`Offline HTML integrity check failed: expected 1 doctype, found ${doctypeCount}.`);
+}
+if (/\b(?:src|href)=["'][^"']*assets\//i.test(html)) {
+  throw new Error('Offline HTML integrity check failed: external build asset reference remains.');
+}
+if (!html.includes('<div id="root"></div>')) {
+  throw new Error('Offline HTML integrity check failed: React root element missing.');
+}
+
 await writeFile(outputPath, html, 'utf8');
 
-console.log(`Offline HTML created: ${outputPath}`);
+console.log(`Offline HTML created and verified: ${outputPath}`);
