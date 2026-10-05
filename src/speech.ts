@@ -57,8 +57,7 @@ export function getSpeechMode(): SpeechMode {
 export function isSpeechSupported(): boolean {
   return Boolean(
     navigator.mediaDevices?.getUserMedia &&
-    typeof MediaRecorder !== 'undefined' &&
-    window.AudioContext,
+    typeof MediaRecorder !== 'undefined',
   );
 }
 
