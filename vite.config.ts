@@ -7,8 +7,8 @@ export default defineConfig({
   base: '/eb_sucht/',
   resolve: {
     alias: {
-      '@dictation-panel': resolve(__dirname, 'src/DictationPanel.tsx'),
-      '@speech': resolve(__dirname, 'src/speech.ts'),
+      '@dictation-panel': resolve(import.meta.dirname, 'src/DictationPanel.tsx'),
+      '@speech': resolve(import.meta.dirname, 'src/speech.ts'),
     },
   },
 });
