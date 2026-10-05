@@ -13,6 +13,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: actions/cache@v4
+        with:
+          path: .speech-assets
+          key: whisper-tiny-q8-v1
       - run: npm install
       - run: npm test
       - run: npm run build:offline
