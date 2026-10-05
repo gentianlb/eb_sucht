@@ -23,6 +23,9 @@
     "paths": {
       "@speech": [
         "src/speech.ts"
+      ],
+      "@dictation-panel": [
+        "src/DictationPanel.tsx"
       ]
     }
   },
