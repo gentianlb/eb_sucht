@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
+  complications,
   detoxMedications,
   emptyForm,
   followUpOptions,
@@ -162,7 +163,10 @@ function App() {
   const completedSections = useMemo(() => {
     const sections = [
       Boolean(form.name.trim() && form.admissionMode && form.wardType),
-      form.intakeMode === 'reason' ? Boolean(form.admissionReason.trim()) : form.treatmentGoals.length > 0,
+      Boolean(
+        (form.intakeMode === 'reason' ? form.admissionReason.trim() : form.treatmentGoals.length > 0) ||
+        (form.transferEnabled && form.transferFrom && form.transferTo),
+      ),
       Boolean(
         form.urineStatus ||
         (form.aakEnabled && form.aak.trim()) ||
@@ -173,9 +177,9 @@ function App() {
         form.detoxMedication.length ||
         form.detoxMedicationOther.trim() ||
         form.additionalMedication.some((med) => med.name.trim()) ||
-        form.priorMedication.some((med) => med.name.trim()) ||
-        (form.transferEnabled && form.transferFrom && form.transferTo),
+        form.priorMedication.some((med) => med.name.trim()),
       ),
+      Boolean(form.complications.length || form.complicationsOther.trim()),
       Boolean(form.wardBehavior.length || form.wardBehaviorOther.trim()),
       Boolean(form.groups.length || form.groupParticipation),
       Boolean(form.therapeuticMeasures.length || form.therapeuticMeasuresOther.trim()),
@@ -188,7 +192,7 @@ function App() {
     return sections.filter(Boolean).length;
   }, [form]);
 
-  const progressPercent = Math.round((completedSections / 12) * 100);
+  const progressPercent = Math.round((completedSections / 13) * 100);
 
   const patch = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -307,7 +311,7 @@ function App() {
           <div className="progress-panel panel" aria-label="Ausfüllfortschritt">
             <div className="progress-copy">
               <span>Fortschritt</span>
-              <strong>{completedSections}/12 Abschnitte ausgefüllt</strong>
+              <strong>{completedSections}/13 Abschnitte ausgefüllt</strong>
             </div>
             <div className="progress-track" aria-hidden="true">
               <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
@@ -362,6 +366,33 @@ function App() {
                 )}
               </>
             )}
+
+            <div className="subpanel">
+              <label className="switch-row">
+                <input type="checkbox" checked={form.transferEnabled} onChange={(e) => patch('transferEnabled', e.target.checked)} />
+                <span>Stationsverlegung im Verlauf dokumentieren</span>
+              </label>
+              {form.transferEnabled && (
+                <div className="field-grid two">
+                  <label>
+                    <span>Von</span>
+                    <select value={form.transferFrom} onChange={(e) => patch('transferFrom', e.target.value as FormState['wardType'])}>
+                      <option value="">Bitte wählen</option>
+                      <option value="closed">geschlossen geführt</option>
+                      <option value="open">offen geführt</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Nach</span>
+                    <select value={form.transferTo} onChange={(e) => patch('transferTo', e.target.value as FormState['wardType'])}>
+                      <option value="">Bitte wählen</option>
+                      <option value="open">offen geführt</option>
+                      <option value="closed">geschlossen geführt</option>
+                    </select>
+                  </label>
+                </div>
+              )}
+            </div>
           </Section>
 
           <Section title="3 · Aufnahme-Screening" {...sectionProps('screening')}>
@@ -433,7 +464,7 @@ function App() {
             <input value={form.withdrawalOther} onChange={(e) => patch('withdrawalOther', e.target.value)} placeholder="Weiteres Entzugssymptom" />
           </Section>
 
-          <Section title="5 · Medikamentöse Behandlung & Verlegung" {...sectionProps('medication')}>
+          <Section title="5 · Medikamentöse Behandlung" {...sectionProps('medication')}>
             <span className="field-title">Entzugsbehandlung</span>
             <MultiChips options={detoxMedications} value={form.detoxMedication} onChange={setDetoxMedication} />
             <input value={form.detoxMedicationOther} onChange={(e) => patch('detoxMedicationOther', e.target.value)} placeholder="Anderes Medikament (ohne Dosis)" />
@@ -466,41 +497,24 @@ function App() {
                 <button type="button" className="icon-button" aria-label="Vormedikation entfernen" onClick={() => removePrior(med.id)}>×</button>
               </div>
             ))}
-
-            <div className="subpanel">
-              <label className="switch-row">
-                <input type="checkbox" checked={form.transferEnabled} onChange={(e) => patch('transferEnabled', e.target.checked)} />
-                <span>Stationsverlegung dokumentieren</span>
-              </label>
-              {form.transferEnabled && (
-                <div className="field-grid two">
-                  <label>
-                    <span>Von</span>
-                    <select value={form.transferFrom} onChange={(e) => patch('transferFrom', e.target.value as FormState['wardType'])}>
-                      <option value="">Bitte wählen</option>
-                      <option value="closed">geschlossen geführt</option>
-                      <option value="open">offen geführt</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Nach</span>
-                    <select value={form.transferTo} onChange={(e) => patch('transferTo', e.target.value as FormState['wardType'])}>
-                      <option value="">Bitte wählen</option>
-                      <option value="open">offen geführt</option>
-                      <option value="closed">geschlossen geführt</option>
-                    </select>
-                  </label>
-                </div>
-              )}
-            </div>
           </Section>
 
-          <Section title="6 · Stationsalltag" {...sectionProps('ward')}>
+          <Section title="6 · Komplikationen im Verlauf" {...sectionProps('complications')}>
+            <MultiChips options={complications} value={form.complications} onChange={(v) => patch('complications', v)} />
+            <textarea
+              rows={2}
+              value={form.complicationsOther}
+              onChange={(e) => patch('complicationsOther', e.target.value)}
+              placeholder="Sonstige Komplikation / ergänzender Verlauf"
+            />
+          </Section>
+
+          <Section title="7 · Stationsalltag" {...sectionProps('ward')}>
             <MultiChips options={wardBehaviors} value={form.wardBehavior} onChange={(v) => patch('wardBehavior', v)} />
             <input value={form.wardBehaviorOther} onChange={(e) => patch('wardBehaviorOther', e.target.value)} placeholder="Weitere Beschreibung" />
           </Section>
 
-          <Section title="7 · Gruppentherapie" hint={`${form.groups.length}/4 Gruppen`} {...sectionProps('groups')}>
+          <Section title="8 · Gruppentherapie" hint={`${form.groups.length}/4 Gruppen`} {...sectionProps('groups')}>
             <MultiChips options={groups} value={form.groups} max={4} onChange={(v) => patch('groups', v)} />
             <label>
               <span>Teilnahme</span>
@@ -514,17 +528,17 @@ function App() {
             </label>
           </Section>
 
-          <Section title="8 · Weitere therapeutische Maßnahmen" {...sectionProps('measures')}>
+          <Section title="9 · Weitere therapeutische Maßnahmen" {...sectionProps('measures')}>
             <MultiChips options={therapeuticMeasures} value={form.therapeuticMeasures} onChange={(v) => patch('therapeuticMeasures', v)} />
             <input value={form.therapeuticMeasuresOther} onChange={(e) => patch('therapeuticMeasuresOther', e.target.value)} placeholder="Sonstige Maßnahme" />
           </Section>
 
-          <Section title="9 · Behandlungsergebnis" {...sectionProps('outcomes')}>
+          <Section title="10 · Behandlungsergebnis" {...sectionProps('outcomes')}>
             <MultiChips options={outcomes} value={form.outcomes} onChange={(v) => patch('outcomes', v)} />
             <textarea rows={2} value={form.outcomesOther} onChange={(e) => patch('outcomesOther', e.target.value)} placeholder="Weiteres Behandlungsergebnis" />
           </Section>
 
-          <Section title="10 · Entlassung" {...sectionProps('discharge', true)}>
+          <Section title="11 · Entlassung" {...sectionProps('discharge', true)}>
             <div className="field-grid two">
               <label><span>Entlassdatum</span><input type="date" value={form.dischargeDate} onChange={(e) => patch('dischargeDate', e.target.value)} /></label>
               <label>
@@ -546,7 +560,7 @@ function App() {
             )}
           </Section>
 
-          <Section title="11 · Gefährdungsbeurteilung & Opioid-Aufklärung" hint="Gefährdungsbeurteilung vor Kopieren" {...sectionProps('safety', true)}>
+          <Section title="12 · Gefährdungsbeurteilung & Opioid-Aufklärung" hint="Gefährdungsbeurteilung vor Kopieren" {...sectionProps('safety', true)}>
             <div className={`required-box ${safetyComplete ? 'complete' : ''}`}>
               <MultiChips options={safetyOptions} value={form.safety} onChange={(v) => patch('safety', v)} />
               <textarea rows={2} value={form.safetyOther} onChange={(e) => patch('safetyOther', e.target.value)} placeholder="Alternativer / ergänzender klinischer Freitext" />
@@ -558,7 +572,7 @@ function App() {
             </label>
           </Section>
 
-          <Section title="12 · Weiterbehandlung / Empfehlungen" {...sectionProps('followup')}>
+          <Section title="13 · Weiterbehandlung / Empfehlungen" {...sectionProps('followup')}>
             <MultiChips options={followUpOptions} value={form.followUp} onChange={(v) => patch('followUp', v)} />
             <input value={form.followUpOther} onChange={(e) => patch('followUpOther', e.target.value)} placeholder="Sonstige Empfehlung" />
             <label><span>Optionaler Termin</span><input type="date" value={form.followUpDate} onChange={(e) => patch('followUpDate', e.target.value)} /></label>
