@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   complications,
   detoxMedications,
@@ -15,14 +15,7 @@ import {
   wardBehaviors,
   withdrawalSymptoms,
 } from './data';
-import { DICTATION_COMMANDS, mergeDictation } from './dictation';
-import {
-  isSpeechSupported,
-  startDictationRecording,
-  transcribeRecording,
-  warmupSpeechModel,
-  type DictationRecorder,
-} from '@speech';
+import DictationPanel from '@dictation-panel';
 import { generateLetter } from './textEngine';
 import type { FormState, MedicationReason, PriorMedication } from './types';
 
@@ -160,27 +153,9 @@ function App() {
   const [notice, setNotice] = useState('');
   const [fastMode, setFastMode] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>('patient');
-  const [dictationRecording, setDictationRecording] = useState(false);
-  const [dictationBusy, setDictationBusy] = useState(false);
-  const [dictationStatus, setDictationStatus] = useState('');
-  const [dictationPreview, setDictationPreview] = useState('');
-  const recorderRef = useRef<DictationRecorder | null>(null);
-  const speechAvailable = useMemo(
-    () => __DICTATION_ENABLED__ && isSpeechSupported(),
-    [],
-  );
-
   useEffect(() => {
     if (!manualMode) setManualText(generated);
   }, [generated, manualMode]);
-
-  useEffect(
-    () => () => {
-      recorderRef.current?.cancel();
-      recorderRef.current = null;
-    },
-    [],
-  );
 
   const text = manualMode ? manualText : generated;
   const safetyComplete = form.safety.length > 0 || form.safetyOther.trim().length > 0;
@@ -229,12 +204,6 @@ function App() {
   };
 
   const reset = () => {
-    recorderRef.current?.cancel();
-    recorderRef.current = null;
-    setDictationRecording(false);
-    setDictationBusy(false);
-    setDictationStatus('');
-    setDictationPreview('');
     setForm({ ...emptyForm });
     setManualMode(false);
     setManualText('');
@@ -261,81 +230,6 @@ function App() {
     }
     setManualText(generated);
     setManualMode(true);
-  };
-
-  const updateDictationStatus = (message: string) => {
-    setDictationStatus(
-      recorderRef.current && !dictationBusy ? `Aufnahme läuft · ${message}` : message,
-    );
-  };
-
-  const startDictation = async () => {
-    if (!speechAvailable || dictationBusy || recorderRef.current) return;
-
-    try {
-      setNotice('');
-      setDictationPreview('');
-      setDictationStatus('Mikrofon wird vorbereitet …');
-      const recorder = await startDictationRecording();
-      recorderRef.current = recorder;
-      setDictationRecording(true);
-      setDictationStatus('Aufnahme läuft · Whisper Small wird im Browser vorbereitet …');
-
-      void warmupSpeechModel(updateDictationStatus).catch((error) => {
-        console.error(error);
-        setDictationStatus(
-          error instanceof Error ? `Sprachmodell: ${error.message}` : 'Sprachmodell konnte nicht geladen werden.',
-        );
-      });
-    } catch (error) {
-      setDictationRecording(false);
-      setDictationStatus(
-        error instanceof Error ? error.message : 'Mikrofon konnte nicht gestartet werden.',
-      );
-    }
-  };
-
-  const stopDictation = async () => {
-    const recorder = recorderRef.current;
-    if (!recorder || dictationBusy) return;
-
-    recorderRef.current = null;
-    setDictationRecording(false);
-    setDictationBusy(true);
-
-    try {
-      setDictationStatus('Aufnahme wird beendet …');
-      const blob = await recorder.stop();
-      const rawText = await transcribeRecording(blob, setDictationStatus);
-      const baseText = manualMode ? manualText : generated;
-      const merged = mergeDictation(baseText, rawText);
-
-      setDictationPreview(merged);
-      setDictationStatus('Transkription fertig. Bitte Vorschau prüfen.');
-      setNotice('Diktat lokal transkribiert. Noch nicht in den Brief übernommen.');
-    } catch (error) {
-      console.error(error);
-      setDictationStatus(
-        error instanceof Error ? error.message : 'Das Diktat konnte nicht transkribiert werden.',
-      );
-    } finally {
-      setDictationBusy(false);
-    }
-  };
-
-  const acceptDictationPreview = () => {
-    if (!dictationPreview.trim()) return;
-    setManualText(dictationPreview);
-    setManualMode(true);
-    setDictationPreview('');
-    setDictationStatus('Diktat wurde übernommen.');
-    setNotice('Diktat in den Brief übernommen.');
-  };
-
-  const discardDictationPreview = () => {
-    setDictationPreview('');
-    setDictationStatus('Diktat verworfen.');
-    setNotice('Diktat-Vorschau verworfen.');
   };
 
   const setUrineStatus = (status: FormState['urineStatus']) => {
@@ -697,71 +591,14 @@ function App() {
               <div className="letter-text">{text || 'Auswahl treffen, um den Fließtext zu erzeugen.'}</div>
             )}
 
-            {speechAvailable && (
-              <div className={`dictation-panel ${dictationRecording ? 'recording' : ''}`}>
-                <div className="dictation-head">
-                  <div>
-                    <strong>Diktat mit Whisper Small</strong>
-                    <span>Audio bleibt lokal im Browser</span>
-                  </div>
-                  <span className="offline-pill">browser</span>
-                </div>
-
-                <button
-                  type="button"
-                  className={dictationRecording ? 'dictation-stop' : 'dictation-start'}
-                  onClick={dictationRecording ? stopDictation : startDictation}
-                  disabled={dictationBusy || Boolean(dictationPreview)}
-                >
-                  {dictationBusy
-                    ? 'Transkription läuft …'
-                    : dictationRecording
-                      ? 'Diktat stoppen'
-                      : 'Diktat starten'}
-                </button>
-
-                {dictationStatus && (
-                  <p className="dictation-status" role="status">{dictationStatus}</p>
-                )}
-
-                {dictationPreview && (
-                  <div className="dictation-preview">
-                    <div className="dictation-preview-head">
-                      <strong>Diktat-Vorschau</strong>
-                      <span>Noch nicht übernommen</span>
-                    </div>
-                    <textarea
-                      className="dictation-preview-editor"
-                      value={dictationPreview}
-                      onChange={(event) => setDictationPreview(event.target.value)}
-                      aria-label="Diktat-Vorschau bearbeiten"
-                    />
-                    <div className="dictation-preview-actions">
-                      <button type="button" className="primary" onClick={acceptDictationPreview}>
-                        Übernehmen
-                      </button>
-                      <button type="button" className="ghost" onClick={discardDictationPreview}>
-                        Verwerfen
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <details className="dictation-help">
-                  <summary>Diktatbefehle anzeigen</summary>
-                  <p>{DICTATION_COMMANDS.join(' · ')}</p>
-                  <p>
-                    Häufige Psychopharmaka und suchtmedizinische Medikamente werden nach der
-                    Transkription lokal auf ihre übliche Schreibweise korrigiert.
-                  </p>
-                  <p>
-                    Beim ersten Diktat wird Whisper Small über das Internet geladen und im
-                    Browser zwischengespeichert. Die Audioaufnahme selbst wird nicht an einen
-                    Spracherkennungsdienst übertragen.
-                  </p>
-                </details>
-              </div>
-            )}
+            <DictationPanel
+              baseText={text}
+              onAccept={(nextText) => {
+                setManualText(nextText);
+                setManualMode(true);
+              }}
+              onNotice={setNotice}
+            />
 
             <div className="preview-actions">
               <button type="button" className="secondary" onClick={handleEditButton}>
