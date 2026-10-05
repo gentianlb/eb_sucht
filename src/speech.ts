@@ -119,7 +119,7 @@ function createEmbeddedFetch() {
       return new Response(null, { status: 200, headers });
     }
 
-    return new Response(resource.bytes, {
+    return new Response(resource.bytes as unknown as BodyInit, {
       status: 200,
       headers,
     });
