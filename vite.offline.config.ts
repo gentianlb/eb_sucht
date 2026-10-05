@@ -7,11 +7,9 @@ export default defineConfig({
   base: './',
   resolve: {
     alias: {
+      '@dictation-panel': resolve(__dirname, 'src/DictationPanel.disabled.tsx'),
       '@speech': resolve(__dirname, 'src/speech-disabled.ts'),
     },
-  },
-  define: {
-    __DICTATION_ENABLED__: false,
   },
   build: {
     outDir: 'dist-offline',
