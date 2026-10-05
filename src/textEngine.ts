@@ -134,7 +134,7 @@ function renderComplication(complication: string, gender: FormState['gender']): 
       'Im Verlauf kam es zu einem Krampfanfall.',
     'Konsum/Rückfall auf Station':
       'Im Verlauf kam es zu einem Konsumereignis beziehungsweise Rückfall auf Station.',
-    'Drogenverkauf auf Station laut Mitpatient:innen':
+    'Drogenverkauf auf Station, laut Mitpatienten':
       'Nach Angaben von Mitpatienten bestand der Verdacht auf Drogenverkauf auf Station.',
     'akute Intoxikation auf Station':
       'Im Verlauf kam es zu einer akuten Intoxikation auf Station.',
