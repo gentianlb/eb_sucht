@@ -208,3 +208,85 @@ input::placeholder, textarea::placeholder { color: #596777; }
     gap: 3px;
   }
 }
+
+
+.dictation-panel {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 13px;
+  border: 1px solid #244237;
+  border-radius: 12px;
+  background: rgba(17, 48, 38, .2);
+}
+.dictation-panel.recording {
+  border-color: #745151;
+  background: rgba(84, 27, 27, .14);
+}
+.dictation-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dictation-head > div {
+  display: grid;
+  gap: 2px;
+}
+.dictation-head strong {
+  color: #e4efe9;
+  font-size: .84rem;
+}
+.dictation-head span {
+  color: var(--muted);
+  font-size: .72rem;
+}
+.offline-pill {
+  border: 1px solid #2e6251;
+  border-radius: 999px;
+  padding: 4px 7px;
+  color: var(--accent) !important;
+  background: rgba(24, 71, 55, .35);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 800;
+}
+.dictation-start,
+.dictation-stop {
+  width: 100%;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 800;
+}
+.dictation-start {
+  border: 1px solid #2b6754;
+  background: #153d31;
+  color: #dcf8ee;
+}
+.dictation-stop {
+  border: 1px solid #744545;
+  background: #3b1d1d;
+  color: #ffdede;
+}
+.dictation-status {
+  margin: 0;
+  color: #aebcc8;
+  font-size: .76rem;
+  line-height: 1.45;
+}
+.dictation-help {
+  border-top: 1px solid #203129;
+  padding-top: 8px;
+}
+.dictation-help summary {
+  cursor: pointer;
+  color: #9eb0bc;
+  font-size: .74rem;
+  font-weight: 700;
+}
+.dictation-help p {
+  margin: 7px 0 0;
+  color: #83929f;
+  font-size: .72rem;
+  line-height: 1.55;
+}
