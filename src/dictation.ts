@@ -46,6 +46,22 @@ const medicationCorrections: Array<[RegExp, string]> = [
   [/\bzopiclon\b/gi, 'Zopiclon'],
   [/\bzolpidem\b/gi, 'Zolpidem'],
   [/\bmethylphenidat\b/gi, 'Methylphenidat'],
+  [/\bcarbamazepin\b/gi, 'Carbamazepin'],
+  [/\blevetiracetam\b/gi, 'Levetiracetam'],
+  [/\bbiperiden\b/gi, 'Biperiden'],
+  [/\bakineton\b/gi, 'Akineton'],
+  [/\bopipramol\b/gi, 'Opipramol'],
+  [/\bdoxepin\b/gi, 'Doxepin'],
+  [/\btrimipramin\b/gi, 'Trimipramin'],
+  [/\bmoclobemid\b/gi, 'Moclobemid'],
+  [/\bvortioxetin\b/gi, 'Vortioxetin'],
+  [/\bagomelatin\b/gi, 'Agomelatin'],
+  [/\bpaliperidon\b/gi, 'Paliperidon'],
+  [/\bamisulprid\b/gi, 'Amisulprid'],
+  [/\bzuclopenthixol\b/gi, 'Zuclopenthixol'],
+  [/\bflupentixol\b/gi, 'Flupentixol'],
+  [/\bchlorprothixen\b/gi, 'Chlorprothixen'],
+  [/\bnalmefen\b/gi, 'Nalmefen'],
 ];
 
 export function correctMedicalVocabulary(text: string): string {
