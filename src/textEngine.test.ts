@@ -59,6 +59,45 @@ describe('generateLetter', () => {
     expect(text).toContain('Im weiteren Behandlungsverlauf erfolgte die Verlegung von der geschlossen geführten auf die offen geführte Station.');
   });
 
+  it('renders complications with gender-aware and source-qualified wording', () => {
+    const text = generateLetter({
+      ...emptyForm,
+      gender: 'female',
+      complications: [
+        'somatische Vorstellung im Allgemeinkrankenhaus',
+        'Krampfanfall',
+        'Drogenverkauf auf Station, laut Mitpatienten',
+      ],
+    });
+
+    expect(text).toContain(
+      'Aufgrund somatischer Beschwerden musste die Patientin in einem Allgemeinkrankenhaus vorgestellt werden.',
+    );
+    expect(text).toContain('Im Verlauf kam es zu einem Krampfanfall.');
+    expect(text).toContain(
+      'Nach Angaben von Mitpatienten bestand der Verdacht auf Drogenverkauf auf Station.',
+    );
+  });
+
+  it('keeps transfer prose after medication and before ward course', () => {
+    const text = generateLetter({
+      ...emptyForm,
+      detoxMedication: ['Clonazepam (Rivotril)'],
+      transferEnabled: true,
+      transferFrom: 'closed',
+      transferTo: 'open',
+      wardBehavior: ['kooperativ'],
+    });
+
+    const medicationIndex = text.indexOf('Die medikamentöse Entzugsbehandlung erfolgte');
+    const transferIndex = text.indexOf('Im weiteren Behandlungsverlauf erfolgte die Verlegung');
+    const wardIndex = text.indexOf('Im Stationsalltag zeigte sich');
+
+    expect(medicationIndex).toBeGreaterThanOrEqual(0);
+    expect(transferIndex).toBeGreaterThan(medicationIndex);
+    expect(wardIndex).toBeGreaterThan(transferIndex);
+  });
+
   it('renders recommendation wording with "Wir empfehlen"', () => {
     const text = generateLetter({
       ...emptyForm,
