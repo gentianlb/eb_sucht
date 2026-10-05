@@ -290,3 +290,46 @@ input::placeholder, textarea::placeholder { color: #596777; }
   font-size: .72rem;
   line-height: 1.55;
 }
+
+
+.dictation-preview {
+  display: grid;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid #365346;
+  border-radius: 10px;
+  background: #0a1210;
+}
+.dictation-preview-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.dictation-preview-head strong {
+  color: #dcebe5;
+  font-size: .78rem;
+}
+.dictation-preview-head span {
+  color: var(--warning);
+  font-size: .7rem;
+}
+.dictation-preview-editor {
+  min-height: 180px;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.6;
+}
+.dictation-preview-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.dictation-preview-actions .primary {
+  grid-column: auto;
+}
+
+@media (max-width: 620px) {
+  .dictation-preview-actions {
+    grid-template-columns: 1fr;
+  }
+}
