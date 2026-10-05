@@ -45,18 +45,24 @@ function readRegistry(): EmbeddedSpeechRegistry | null {
 }
 
 export function hasEmbeddedSpeechAssets(): boolean {
-  return readRegistry() !== null;
+  // Do not JSON.parse the ~100 MB embedded registry during normal app startup.
+  // Parsing is deferred until dictation is actually used.
+  return Boolean(document.getElementById('eb-speech-assets')?.textContent);
 }
 
 function base64ToBytes(value: string): Uint8Array {
-  const binary = atob(value);
-  const bytes = new Uint8Array(binary.length);
-  const chunkSize = 65_536;
+  const estimatedLength = Math.floor((value.length * 3) / 4);
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  const bytes = new Uint8Array(estimatedLength - padding);
+  const base64ChunkSize = 4 * 16_384;
+  let writeOffset = 0;
 
-  for (let offset = 0; offset < binary.length; offset += chunkSize) {
-    const end = Math.min(offset + chunkSize, binary.length);
-    for (let index = offset; index < end; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
+  for (let offset = 0; offset < value.length; offset += base64ChunkSize) {
+    const chunk = value.slice(offset, Math.min(offset + base64ChunkSize, value.length));
+    const binary = atob(chunk);
+
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[writeOffset++] = binary.charCodeAt(index);
     }
   }
 
@@ -113,7 +119,7 @@ function createEmbeddedFetch() {
       return new Response(null, { status: 200, headers });
     }
 
-    return new Response(resource.bytes.slice().buffer, {
+    return new Response(resource.bytes, {
       status: 200,
       headers,
     });
